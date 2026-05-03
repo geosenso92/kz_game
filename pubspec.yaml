@@ -1,0 +1,51 @@
+name: kz_game
+description: "Nederlandse speurtocht-game voor kinderen"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  provider: ^6.1.5+1
+  shared_preferences: ^2.5.3
+  geolocator: ^14.0.2
+  flutter_map: ^8.2.2
+  latlong2: ^0.9.1
+  url_launcher: ^6.3.2
+  image_picker: ^1.1.2
+  audioplayers: ^6.4.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo.png
+    - assets/loadscreen_portrait.png
+    - assets/loadscreen_landscape.png
+    - assets/roads.png
+    - assets/animals.png
+    - assets/word.png
+    - assets/ticks.png
+    - assets/Tinkerbell2.png
+    - assets/Tinkerbell_frame.png
+    - assets/Tinkerbell_timer.png
+    - assets/tinkerbell4.jpg
+    - assets/uiltje.png
+    - assets/bosgebied.geojson
+    - assets/fauna.geojson
+    - assets/KZ_locatie.geojson
+    - assets/maps/colscreen.png
+    - assets/areas/search_area.geojson
+    - assets/quests/
+    - assets/animals/icons_300/
+    - assets/animals/icons_300_silhouette/
+    - assets/animals/master/
+    - assets/audio/
