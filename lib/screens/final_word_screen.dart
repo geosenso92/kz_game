@@ -1,11 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/hunt_game_state.dart';
+import '../providers/language_provider.dart';
 import '../services/audio_service.dart';
 import '../widgets/game_top_bar.dart';
 import '../widgets/subtle_logo.dart';
-import '../widgets/tinkerbell_framed_photo.dart';
 import 'navigation_helpers.dart';
 
 class FinalWordScreen extends StatefulWidget {
@@ -75,40 +75,119 @@ class _FinalWordScreenState extends State<FinalWordScreen> {
     );
   }
 
+  Widget _unlockedLetterBadge(String letter) {
+    return Container(
+      width: 36,
+      height: 36,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFFA5D6A7),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFF2E7D32), width: 1.2),
+      ),
+      child: Text(
+        letter.toUpperCase(),
+        style: const TextStyle(
+          color: Color(0xFF1B5E20),
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+
+  Widget _failedLetterBadge() {
+    return Container(
+      width: 36,
+      height: 36,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFFC62828),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFF8E0000), width: 1.2),
+      ),
+      child: const Icon(
+        Icons.close,
+        color: Colors.white,
+        size: 20,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final game = context.watch<HuntGameState>();
-    final autoSlots = game.finalWordSlots;
-    final failedSlots = game.finalWordFailedSlots;
-    final profilePhoto = game.profiel?.photoPath;
+    final language = context.watch<LanguageProvider>();
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
-    final slots = List<String>.generate(_slotCount, (i) {
-      final auto = (i < autoSlots.length ? autoSlots[i] : null) ?? '';
-      if (auto.isNotEmpty) return auto;
-      return _manualSlots[i];
-    });
+    if (isLandscape) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF3E5C8),
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Container(color: const Color(0xFFF3E5C8)),
+              ),
+              Column(
+                children: [
+                  GameTopBar(
+                    currentTab: GameTopTab.finalWord,
+                    onTabSelected: (tab) => openTopTab(context, tab),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Image.asset(
+                            'assets/rotate.png',
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.contain,
+                          ),
+                          const SizedBox(height: 16),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 32),
+                            child: Text(
+                              language.t('rotate_screen'),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Color(0xFF4D331D),
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SubtleLogo(opacity: 0.08),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final game = context.watch<HuntGameState>();
+    final failedQuestCount = game.failedQuestCount;
+    final unlockedLetters = game.unlockedLetters;
+    final slots = List<String>.from(_manualSlots);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3E5C8),
       body: SafeArea(
         child: Stack(
           children: [
-            Positioned.fill(
-              child: Container(color: const Color(0xFFF3E5C8)),
-            ),
+            Positioned.fill(child: Container(color: const Color(0xFFF3E5C8))),
             Positioned(
-              top: 84,
-              left: 0,
-              right: 0,
+              top: 92,
+              left: 16,
+              right: 16,
               child: Opacity(
                 opacity: 0.94,
-                child: Center(
-                  child: TinkerbellFramedPhoto(
-                    photoPath: profilePhoto,
-                    width: 235,
-                    showFrame: false,
-                  ),
-                ),
+                child: _logoPanel(),
               ),
             ),
             Column(
@@ -119,40 +198,66 @@ class _FinalWordScreenState extends State<FinalWordScreen> {
                 ),
                 Expanded(
                   child: Align(
-                    alignment: const Alignment(0, 0.56),
+                    alignment: const Alignment(0, 0.70),
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 14),
                       padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8EED8),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFD7C29A), width: 1.2),
+                        border: Border.all(
+                          color: const Color(0xFFD7C29A),
+                          width: 1.2,
+                        ),
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text(
-                            'Raad het woord!',
+                          Text(
+                            language.t('guess_word'),
                             textAlign: TextAlign.center,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: Color(0xFF4D331D),
                               fontSize: 30,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
                           const SizedBox(height: 12),
+                          if (unlockedLetters.isNotEmpty ||
+                              failedQuestCount > 0) ...[
+                            Text(
+                              language.t('unlocked_letters'),
+                              style: const TextStyle(
+                                color: Color(0xFF6A4A2B),
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                ...unlockedLetters.map(
+                                  _unlockedLetterBadge,
+                                ),
+                                ...List.generate(
+                                  failedQuestCount,
+                                  (_) => _failedLetterBadge(),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                          ],
                           Wrap(
                             spacing: 10,
                             runSpacing: 10,
                             alignment: WrapAlignment.center,
                             children: List.generate(_slotCount, (index) {
                               final val = slots[index];
-                              final isLockedAuto =
-                                  (index < autoSlots.length && (autoSlots[index] ?? '').isNotEmpty);
-                              final isFailedSlot =
-                                  index < failedSlots.length && failedSlots[index] && val.isEmpty;
+                              // Always render empty slots as circles with a dot placeholder;
+                              // failed guesses are shown separately next to unlocked letters.
                               return InkWell(
-                                onTap: isLockedAuto ? null : () => _pickLetter(context, index),
+                                onTap: () => _pickLetter(context, index),
                                 borderRadius: BorderRadius.circular(30),
                                 child: Container(
                                   width: 46,
@@ -160,13 +265,12 @@ class _FinalWordScreenState extends State<FinalWordScreen> {
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     color: val.isNotEmpty
-                                        ? (isLockedAuto
-                                            ? const Color(0xFF2E7D32)
-                                            : const Color(0xFF2A63BF))
-                                        : isFailedSlot
-                                            ? const Color(0xFFC62828)
+                                        ? const Color(0xFF2A63BF)
                                         : const Color(0xFFFFF4DC),
-                                    border: Border.all(color: Colors.white, width: 1.1),
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 1.1,
+                                    ),
                                   ),
                                   alignment: Alignment.center,
                                   child: Text(
@@ -175,8 +279,6 @@ class _FinalWordScreenState extends State<FinalWordScreen> {
                                       fontSize: val.isNotEmpty ? 21 : 20,
                                       color: val.isNotEmpty
                                           ? Colors.white
-                                          : isFailedSlot
-                                              ? Colors.white
                                           : const Color(0xFF7A5A3A),
                                       fontWeight: FontWeight.w900,
                                     ),
@@ -191,34 +293,49 @@ class _FinalWordScreenState extends State<FinalWordScreen> {
                                 ? null
                                 : () async {
                                     final candidate = slots.join();
-                                    final ok = context.read<HuntGameState>().checkFinalWord(candidate);
+                                    final ok = context
+                                        .read<HuntGameState>()
+                                        .checkFinalWord(candidate);
                                     if (ok) {
                                       if (_showingSuccessDialog) return;
                                       _showingSuccessDialog = true;
                                       try {
-                                        await AudioService.instance.playCongrats();
+                                        await AudioService.instance
+                                            .playCongrats();
                                         if (!context.mounted) return;
                                         await showDialog<void>(
                                           context: context,
                                           barrierDismissible: true,
-                                          builder: (_) => const _FinalWordSuccessDialog(),
+                                          builder: (_) =>
+                                              _FinalWordSuccessDialog(),
                                         );
+                                        if (!context.mounted) return;
+                                        await showDialog<void>(
+                                          context: context,
+                                          barrierDismissible: true,
+                                          builder: (_) =>
+                                              const _MyStatsDialog(),
+                                        );
+                                        if (!context.mounted) return;
+                                        openTopTab(context, GameTopTab.map);
                                       } finally {
                                         _showingSuccessDialog = false;
                                       }
                                       return;
                                     }
-                                    setState(() => _attempts += 1);
+                                    setState(() {
+                                      _attempts += 1;
+                                    });
                                     final left = (3 - _attempts).clamp(0, 3);
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
-                                          'Niet goed. Pogingen over: $left',
+                                          language.t('wrong_attempts', values: {'left': '$left'}),
                                         ),
                                       ),
                                     );
                                   },
-                            child: const Text('Check woord (max. 3 pogingen)'),
+                            child: Text(language.t('check_word')),
                           ),
                         ],
                       ),
@@ -233,13 +350,37 @@ class _FinalWordScreenState extends State<FinalWordScreen> {
       ),
     );
   }
+
+  Widget _logoPanel() {
+    return Container(
+      width: double.infinity,
+      height: 264,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF1B5E20), width: 3),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        color: const Color(0xFFF7EEDC),
+        alignment: Alignment.center,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Image.asset(
+            'assets/logo.png',
+            fit: BoxFit.contain,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _FinalWordSuccessDialog extends StatefulWidget {
   const _FinalWordSuccessDialog();
 
   @override
-  State<_FinalWordSuccessDialog> createState() => _FinalWordSuccessDialogState();
+  State<_FinalWordSuccessDialog> createState() =>
+      _FinalWordSuccessDialogState();
 }
 
 class _FinalWordSuccessDialogState extends State<_FinalWordSuccessDialog>
@@ -253,10 +394,6 @@ class _FinalWordSuccessDialogState extends State<_FinalWordSuccessDialog>
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     )..repeat();
-    Future<void>.delayed(const Duration(seconds: 20), () {
-      if (!mounted) return;
-      Navigator.of(context).pop();
-    });
   }
 
   @override
@@ -267,6 +404,7 @@ class _FinalWordSuccessDialogState extends State<_FinalWordSuccessDialog>
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageProvider>();
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
@@ -277,7 +415,7 @@ class _FinalWordSuccessDialogState extends State<_FinalWordSuccessDialog>
             padding: const EdgeInsets.fromLTRB(20, 26, 20, 24),
             decoration: BoxDecoration(
               color: const Color(0xFFF8EED8),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFFFD54F), width: 2.2),
               boxShadow: const [
                 BoxShadow(
@@ -287,40 +425,66 @@ class _FinalWordSuccessDialogState extends State<_FinalWordSuccessDialog>
                 ),
               ],
             ),
-            child: const Column(
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Gefeliciteerd!',
+                  language.t('congrats'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Color(0xFF2E7D32),
                     fontSize: 34,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Text(
-                  'Het goede woord geraden!\nLaat het resultaat zien en haal je verrassing op bij Klein Zwitserland!',
+                  language.t('word_found'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Color(0xFF4D331D),
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
                     height: 1.25,
                   ),
                 ),
-                SizedBox(height: 14),
+                const SizedBox(height: 10),
                 Text(
-                  'Deze melding sluit automatisch na 20 seconden.',
+                  language.t('quest_finished'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFF6B4B2A),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                  style: const TextStyle(
+                    color: Color(0xFF6A4A2B),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(language.t('view_stats')),
                   ),
                 ),
               ],
+            ),
+          ),
+          Positioned(
+            top: 10,
+            right: 10,
+            child: InkWell(
+              onTap: () => Navigator.of(context).pop(),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFC62828),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white, width: 1.2),
+                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 20),
+              ),
             ),
           ),
           Positioned.fill(
@@ -337,6 +501,124 @@ class _FinalWordSuccessDialogState extends State<_FinalWordSuccessDialog>
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MyStatsDialog extends StatelessWidget {
+  const _MyStatsDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    final game = context.watch<HuntGameState>();
+    final language = context.watch<LanguageProvider>();
+    final distanceLabel = _distanceLabel(game.distanceTravelledMeters);
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+      child: Stack(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8EED8),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF2E7D32), width: 2.0),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x55000000),
+                  blurRadius: 18,
+                  offset: Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  language.t('stats_title'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF2E7D32),
+                    fontSize: 30,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _summaryRow(language.t('walking_distance'), distanceLabel),
+                const SizedBox(height: 9),
+                _summaryRow(language.t('total_duration'), game.elapsedTimeLabel),
+                const SizedBox(height: 9),
+                _summaryRow(language.t('bosdieren_found'), '${game.gevangenAantal}'),
+                const SizedBox(height: 9),
+                _summaryRow(language.t('tasks_correct'), '${game.solvedQuestCount}'),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(language.t('ok')),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            top: 10,
+            right: 10,
+            child: InkWell(
+              onTap: () => Navigator.of(context).pop(),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFC62828),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white, width: 1.2),
+                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 20),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _distanceLabel(double distance) {
+    if (distance >= 1000) {
+      return '${(distance / 1000).toStringAsFixed(1)} km';
+    }
+    return '${distance.round()} meter';
+  }
+
+  Widget _summaryRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF4D331D),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              color: Color(0xFF2E7D32),
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -362,7 +644,8 @@ class _LoopConfettiPainter extends CustomPainter {
       final local = (progress + (i * 0.017)) % 1.0;
       final x = lane * size.width;
       final y = local * size.height;
-      final paint = Paint()..color = _colors[i % _colors.length].withValues(alpha: 0.9);
+      final paint = Paint()
+        ..color = _colors[i % _colors.length].withValues(alpha: 0.9);
       canvas.save();
       canvas.translate(x, y);
       canvas.rotate((i % 7) * 0.26 + local * 3.14);
@@ -382,4 +665,3 @@ class _LoopConfettiPainter extends CustomPainter {
     return oldDelegate.progress != progress;
   }
 }
-

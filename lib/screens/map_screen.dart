@@ -1,14 +1,19 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:vibration/vibration.dart';
 
 import '../models/dier_spawn.dart';
 import '../models/hunt_quest.dart';
 import '../providers/hunt_game_state.dart';
+import '../providers/language_provider.dart';
 import '../services/audio_service.dart';
 import '../widgets/game_top_bar.dart';
 import '../widgets/subtle_logo.dart';
@@ -30,6 +35,13 @@ class _MapScreenState extends State<MapScreen>
   bool _openingQuestFromGps = false;
   bool _processingFaunaUnlockDialogs = false;
   bool _showingAllStopsDialog = false;
+  bool _showingTooFarMessage = false;
+  bool _runningTestRoute = false;
+  final Set<String> _notifiedWithin100m = <String>{};
+  final Set<String> _notifiedWithin30m = <String>{};
+  Future<void> _vibrationQueue = Future<void>.value();
+  Timer? _tooFarMessageTimer;
+  Timer? _testRouteTimer;
   late final AnimationController _warningPulseController;
 
   @override
@@ -56,6 +68,8 @@ class _MapScreenState extends State<MapScreen>
   void dispose() {
     _warningPulseController.dispose();
     _game?.stopGpsTracking();
+    _tooFarMessageTimer?.cancel();
+    _testRouteTimer?.cancel();
     super.dispose();
   }
 
@@ -68,6 +82,7 @@ class _MapScreenState extends State<MapScreen>
     final wasAlreadyUnlocked = (game.gevangenPerDier[spawn.naam] ?? 0) > 0;
     final captured = game.vangDierViaMapKlik(spawn.id);
     if (captured == null) return;
+    _queueCapturedAnimalVibration();
     if (!wasAlreadyUnlocked && captured.zeldzaamheid == DierZeldzaamheid.legendarisch) {
       await AudioService.instance.playAnimalCueByName(captured.naam);
     } else if (wasAlreadyUnlocked) {
@@ -76,13 +91,119 @@ class _MapScreenState extends State<MapScreen>
       await AudioService.instance.playCollectObject();
     }
 
+    if (!mounted) return;
+
+    final language = context.read<LanguageProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          language.t('capture_success'),
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF2E7D32),
+      ),
+    );
+    await Future<void>.delayed(const Duration(seconds: 2));
+
+      if (!mounted) return;
+
     await _showAnimalDialog(captured, isNewUnlock: true);
+  }
+
+  bool get _isAndroidDevice =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  void _enqueueVibration(Future<void> Function() action) {
+    if (!_isAndroidDevice) return;
+    _vibrationQueue = _vibrationQueue.then((_) async {
+      try {
+        await action();
+      } catch (_) {
+        // Keep game flow uninterrupted when vibration is not available.
+      }
+    });
+  }
+
+  Future<void> _vibrateDuration(int durationMs, {int amplitude = 210}) async {
+    if (!_isAndroidDevice) return;
+    final hasVibrator = await Vibration.hasVibrator();
+    if (!hasVibrator) {
+      await HapticFeedback.mediumImpact();
+      return;
+    }
+    await Vibration.vibrate(duration: durationMs, amplitude: amplitude);
+  }
+
+  Future<void> _vibratePattern({
+    required List<int> pattern,
+    required List<int> intensities,
+  }) async {
+    if (!_isAndroidDevice) return;
+    final hasVibrator = await Vibration.hasVibrator();
+    if (!hasVibrator) {
+      await HapticFeedback.mediumImpact();
+      return;
+    }
+    await Vibration.vibrate(pattern: pattern, intensities: intensities);
+  }
+
+  void _queueNearAnimalVibration() {
+    _enqueueVibration(() => _vibrateDuration(3000, amplitude: 220));
+  }
+
+  void _queueCaptureRangeVibration() {
+    _enqueueVibration(
+      () => _vibratePattern(
+        pattern: const [0, 2000, 250, 2000, 250, 2000],
+        intensities: const [0, 220, 0, 220, 0, 220],
+      ),
+    );
+  }
+
+  void _queueCaptureTapVibration() {
+    _enqueueVibration(() => _vibrateDuration(70, amplitude: 170));
+  }
+
+  void _queueCapturedAnimalVibration() {
+    _enqueueVibration(
+      () => _vibratePattern(
+        pattern: const [0, 3000, 280, 2000, 260, 1000],
+        intensities: const [0, 230, 0, 220, 0, 210],
+      ),
+    );
+  }
+
+  void _handleSpawnProximityVibration({
+    required DierSpawn spawn,
+    required double distMeters,
+  }) {
+    if (spawn.gevangen) return;
+
+    if (distMeters > 110.0) {
+      _notifiedWithin100m.remove(spawn.id);
+    }
+    if (distMeters > 35.0) {
+      _notifiedWithin30m.remove(spawn.id);
+    }
+
+    if (distMeters <= 100.0 && _notifiedWithin100m.add(spawn.id)) {
+      _queueNearAnimalVibration();
+    }
+    if (distMeters <= 30.0 && _notifiedWithin30m.add(spawn.id)) {
+      _queueCaptureRangeVibration();
+    }
   }
 
   Future<void> _showAnimalDialog(
     DierSpawn spawn, {
     required bool isNewUnlock,
   }) async {
+    if (!mounted) return;
     await showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -114,8 +235,10 @@ class _MapScreenState extends State<MapScreen>
   }
 
   Widget _caughtAnimalCard(DierSpawn spawn, {required bool isNewUnlock}) {
+    final language = context.read<LanguageProvider>();
     final rarityColor = _rarityColor(spawn.zeldzaamheid);
     final rarityLabel = _rarityLabel(spawn.zeldzaamheid);
+    final displayName = language.animalName(spawn.naam);
 
     return Container(
       width: 290,
@@ -129,9 +252,9 @@ class _MapScreenState extends State<MapScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           if (isNewUnlock) ...[
-            const Text(
-              'Nieuw dier gevonden!',
-              style: TextStyle(
+            Text(
+              language.t('new_animal_found'),
+              style: const TextStyle(
                 color: Color(0xFF2E7D32),
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
@@ -142,7 +265,7 @@ class _MapScreenState extends State<MapScreen>
             const SizedBox(height: 6),
           ],
           Text(
-            spawn.naam,
+            displayName,
             style: const TextStyle(
               color: Color(0xFF3B2818),
               fontSize: 24,
@@ -194,6 +317,7 @@ class _MapScreenState extends State<MapScreen>
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageProvider>();
     final game = context.watch<HuntGameState>();
     final outsideSearchArea = game.hasLiveLocation &&
         !_isInsideSearchArea(
@@ -208,8 +332,6 @@ class _MapScreenState extends State<MapScreen>
             game.searchPolygonLatLng,
           )
         : null;
-    final nearestFaunaMeters = _nearestFaunaMeters(game);
-    final nearestQuestMeters = _nearestQuestMeters(game);
     final polygonPoints = game.searchPolygonLatLng
         .map((p) => LatLng(p.lat, p.lon))
         .toList(growable: false);
@@ -275,14 +397,14 @@ class _MapScreenState extends State<MapScreen>
           context: context,
           barrierDismissible: false,
           builder: (_) => AlertDialog(
-            title: const Text('Alle stops gehad!'),
+            title: Text(language.t('all_stops_done_title')),
             content: const Text(
               'Raad het woord en ga terug naar Klein Zwitserland voor een verrassing!',
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('OK'),
+                child: Text(language.t('ok')),
               ),
             ],
           ),
@@ -294,32 +416,118 @@ class _MapScreenState extends State<MapScreen>
 
     final spawnMarkers = game.spawns
         .map(
-          (s) => Marker(
-            point: LatLng(s.y, s.x),
-            width: 34,
-            height: 34,
-            rotate: true,
-            child: GestureDetector(
-              onTap: s.gevangen ? () => _onSpawnTap(s) : null,
-              child: s.gevangen
-                  ? Icon(
-                      Icons.pets,
-                      color: _rarityColor(s.zeldzaamheid),
-                      size: 24,
+          (s) {
+            final captured = s.gevangen;
+            double? distMeters;
+            bool isNearby = false;
+            bool withinCapture = false;
+            final child = SizedBox(
+              width: 34,
+              height: 34,
+              child: captured
+                  ? Image.asset(
+                      'assets/animals/master/${s.naam}.png',
+                      fit: BoxFit.contain,
+                      excludeFromSemantics: true,
+                      errorBuilder: (_, __, ___) => Image.asset(
+                        'assets/animals/icons_300/${s.naam}.png',
+                        fit: BoxFit.contain,
+                        excludeFromSemantics: true,
+                        errorBuilder: (_, __, ___) => Icon(
+                          Icons.pets,
+                          color: Colors.white.withValues(alpha: 0.9),
+                          size: 18,
+                        ),
+                      ),
                     )
                   : Image.asset(
                       'assets/animals/icons_300_silhouette/${s.naam}.png',
-                      width: 24,
-                      height: 24,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.pets,
+                      excludeFromSemantics: true,
+                      errorBuilder: (_, __, ___) => Image.asset(
+                        'assets/animals/icons_300/${s.naam}.png',
+                        fit: BoxFit.contain,
+                        excludeFromSemantics: true,
                         color: Colors.black,
-                        size: 24,
+                        colorBlendMode: BlendMode.srcATop,
+                        errorBuilder: (_, __, ___) => Icon(
+                          Icons.pets,
+                          color: Colors.white.withValues(alpha: 0.9),
+                          size: 18,
+                        ),
                       ),
                     ),
-            ),
-          ),
+            );
+            if (captured) {
+              isNearby = true;
+              withinCapture = true;
+            } else if (game.hasLiveLocation && !outsideSearchArea) {
+              distMeters = _distanceMeters(
+                game.liveLat!,
+                game.liveLon!,
+                s.y,
+                s.x,
+              );
+              _handleSpawnProximityVibration(spawn: s, distMeters: distMeters);
+              isNearby = distMeters <= 100.0;
+              withinCapture = distMeters <= 30.0;
+            }
+
+
+            if (!isNearby) {
+              return Marker(
+                point: LatLng(s.y, s.x),
+                width: 34,
+                height: 34,
+                rotate: true,
+                child: const SizedBox.shrink(),
+              );
+            }
+
+            if (withinCapture) {
+              if (captured) {
+                return Marker(
+                  point: LatLng(s.y, s.x),
+                  width: 34,
+                  height: 34,
+                  rotate: true,
+                  child: child,
+                );
+              }
+
+              return Marker(
+                point: LatLng(s.y, s.x),
+                width: 96,
+                height: 96,
+                rotate: true,
+                child: _HoldToCapture(
+                  onCapture: () => _onSpawnTap(s),
+                  onTapFeedback: _queueCaptureTapVibration,
+                  child: child,
+                ),
+              );
+            }
+
+            return Marker(
+              point: LatLng(s.y, s.x),
+              width: 34,
+              height: 34,
+              rotate: true,
+              child: GestureDetector(
+                onTap: () {
+                  if (_showingTooFarMessage) return;
+                  setState(() => _showingTooFarMessage = true);
+                  _tooFarMessageTimer?.cancel();
+                  _tooFarMessageTimer = Timer(const Duration(seconds: 3), () {
+                    if (mounted) {
+                      setState(() => _showingTooFarMessage = false);
+                    }
+                  });
+                },
+                child: child,
+              ),
+            );
+          },
         )
         .toList(growable: false);
 
@@ -410,11 +618,20 @@ class _MapScreenState extends State<MapScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Row(
                   children: [
-                    _pill('Letters', '${game.unlockedLetterCount}/10'),
-                    const SizedBox(width: 6),
-                    _pill('Bosdier', '${game.gevangenAantal}/${game.totaalSpawns}'),
-                    const SizedBox(width: 6),
-                    _pill('Quests', '${game.completedQuestCount}/${game.totalPlayableQuestCount}'),
+                    _pill(
+                      language.t('map_letters'),
+                      '${game.unlockedLetterCount}/${game.totalPlayableQuestCount}',
+                    ),
+                    const SizedBox(width: 8),
+                    _pill(
+                      language.t('map_quests'),
+                      '${game.solvedQuestCount}/${game.totalPlayableQuestCount}',
+                    ),
+                    const SizedBox(width: 8),
+                    _pill(
+                      language.t('map_animals'),
+                      '${game.gevangenAantal}/${HuntGameState.faunaTotalCount}',
+                    ),
                   ],
                 ),
               ),
@@ -443,61 +660,83 @@ class _MapScreenState extends State<MapScreen>
                         interactionOptions: const InteractionOptions(
                           flags: InteractiveFlag.all,
                         ),
-                        minZoom: 12,
+                        minZoom: 14,
                         maxZoom: 19,
                         onMapEvent: (event) {
                           final r = event.camera.rotation;
-                          if ((r - _mapRotationDegrees).abs() < 0.01) return;
                           if (!mounted) return;
                           setState(() => _mapRotationDegrees = r);
                         },
                       ),
                       children: [
-                        TileLayer(
-                          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName: 'kz_game',
-                        ),
-                        if (polygonPoints.length >= 3)
-                          PolygonLayer(
-                            polygons: [
-                              Polygon(
-                                points: polygonPoints,
-                                color: const Color(0xFF2E7D32).withValues(alpha: 0.20),
-                                borderColor: const Color(0xFF0B5D1E),
-                                borderStrokeWidth: 3.0,
-                              ),
-                            ],
-                          ),
-                        if (polygonPoints.length >= 3)
-                          PolylineLayer(
-                            polylines: [
-                              Polyline(
-                                points: [
-                                  ...polygonPoints,
-                                  polygonPoints.first,
+                        Stack(
+                          children: [
+                            TileLayer(
+                              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              userAgentPackageName: 'kz_game',
+                            ),
+                            if (polygonPoints.length >= 3)
+                              PolygonLayer(
+                                polygons: [
+                                  Polygon(
+                                    points: polygonPoints,
+                                    color: const Color(0xFF2E7D32).withValues(alpha: 0.20),
+                                    borderColor: const Color(0xFF0B5D1E),
+                                    borderStrokeWidth: 3.0,
+                                  ),
                                 ],
-                                strokeWidth: 5.0,
-                                color: const Color(0xFFB8FF5C).withValues(alpha: 0.75),
                               ),
-                            ],
-                          ),
-                        MarkerLayer(markers: spawnMarkers),
-                        MarkerLayer(markers: questMarkers),
-                        MarkerLayer(markers: kzMarkers),
-                        if (game.hasLiveLocation)
-                          MarkerLayer(
-                            markers: [
-                              Marker(
-                                point: LatLng(game.liveLat!, game.liveLon!),
-                                width: 78,
-                                height: 78,
-                                rotate: true,
-                                child: _playerDirectionalMarker(
-                                  targetBearingDegrees: targetBearingToSearchArea,
+                            if (polygonPoints.length >= 3)
+                              PolylineLayer(
+                                polylines: [
+                                  Polyline(
+                                    points: [
+                                      ...polygonPoints,
+                                      polygonPoints.first,
+                                    ],
+                                    strokeWidth: 5.0,
+                                    color: const Color(0xFFB8FF5C).withValues(alpha: 0.75),
+                                  ),
+                                ],
+                              ),
+                            MarkerLayer(markers: spawnMarkers),
+                            MarkerLayer(markers: questMarkers),
+                            MarkerLayer(markers: kzMarkers),
+                            if (game.hasLiveLocation)
+                              MarkerLayer(
+                                markers: [
+                                  Marker(
+                                    point: LatLng(game.liveLat!, game.liveLon!),
+                                    width: 78,
+                                    height: 78,
+                                    rotate: true,
+                                    child: _playerDirectionalMarker(
+                                      targetBearingDegrees: targetBearingToSearchArea,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            if (polygonPoints.length >= 3)
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  child: Builder(
+                                    builder: (context) {
+                                      final camera = MapCamera.maybeOf(context);
+                                      if (camera == null) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      return CustomPaint(
+                                        painter: _SearchAreaShadePainter(
+                                          camera: camera,
+                                          polygon: polygonPoints,
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ),
                               ),
-                            ],
-                          ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -524,7 +763,39 @@ class _MapScreenState extends State<MapScreen>
                         }
                       },
                       icon: const Icon(Icons.my_location),
-                      label: const Text('Volg Mijn Locatie'),
+                      label: Text(language.t('follow_location')),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1B5E20),
+                        foregroundColor: Colors.white,
+                        animationDuration: const Duration(milliseconds: 150),
+                      ).copyWith(
+                        overlayColor: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.pressed)) {
+                            return Colors.white.withValues(alpha: 0.36);
+                          }
+                          if (states.contains(WidgetState.hovered)) {
+                            return Colors.white.withValues(alpha: 0.16);
+                          }
+                          return null;
+                        }),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: _runningTestRoute
+                          ? () async {
+                              AudioService.instance.playClickButton();
+                              await _stopTestRoute();
+                            }
+                          : () async {
+                              AudioService.instance.playClickButton();
+                              await _startTestRoute(context.read<HuntGameState>());
+                            },
+                      icon: Icon(
+                        _runningTestRoute ? Icons.stop_circle : Icons.route,
+                      ),
+                      label: Text(
+                        _runningTestRoute ? 'Stop test route' : 'Test route',
+                      ),
                       style: ElevatedButton.styleFrom(
                         animationDuration: const Duration(milliseconds: 150),
                       ).copyWith(
@@ -556,8 +827,10 @@ class _MapScreenState extends State<MapScreen>
                         );
                       },
                       icon: const Icon(Icons.travel_explore),
-                      label: const Text('Zoekgebied'),
+                      label: Text(language.t('search_area')),
                       style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1B5E20),
+                        foregroundColor: Colors.white,
                         animationDuration: const Duration(milliseconds: 150),
                       ).copyWith(
                         overlayColor: WidgetStateProperty.resolveWith((states) {
@@ -613,11 +886,11 @@ class _MapScreenState extends State<MapScreen>
                         ),
                       ],
                     ),
-                    child: const Column(
+                    child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Ga naar het zoekgebied!',
+                          language.t('go_to_area'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white,
@@ -627,7 +900,50 @@ class _MapScreenState extends State<MapScreen>
                         ),
                         SizedBox(height: 4),
                         Text(
-                          'Pas op bij het oversteken',
+                          language.t('caution_crossing'),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (_showingTooFarMessage)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: IgnorePointer(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFC62828).withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white, width: 1.1),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          language.t('closer_to_catch'),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          language.t('closer_to_catch_subtitle'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white,
@@ -674,37 +990,6 @@ class _MapScreenState extends State<MapScreen>
               ),
             ),
           ),
-          Positioned(
-            left: 22,
-            right: 22,
-            bottom: 72,
-            child: IgnorePointer(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _nearestChip(
-                      icon: Icons.pets,
-                      iconColor: _distanceToneColor(nearestFaunaMeters),
-                      label: nearestFaunaMeters == null
-                          ? 'Bosdier: --'
-                          : 'Bosdier: ${nearestFaunaMeters} meter',
-                      labelColor: _distanceToneColor(nearestFaunaMeters),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _NearestChipStatic(
-                      icon: Icons.flag_rounded,
-                      label: nearestQuestMeters == null
-                          ? 'Quest: --'
-                          : 'Quest: ${nearestQuestMeters} meter',
-                      color: _distanceToneColor(nearestQuestMeters),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
           const SubtleLogo(),
         ],
       ),
@@ -734,6 +1019,66 @@ class _MapScreenState extends State<MapScreen>
       if (intersects) inside = !inside;
     }
     return inside;
+  }
+
+  Future<void> _startTestRoute(HuntGameState game) async {
+    final routeQuests = _orderedRouteQuests(game);
+    if (routeQuests.isEmpty) return;
+
+    _testRouteTimer?.cancel();
+    if (mounted) {
+      setState(() => _runningTestRoute = true);
+    } else {
+      _runningTestRoute = true;
+    }
+
+    game.setTestMode(true);
+
+    final startQuest = routeQuests.first;
+    await game.activateStartStopForTest(questId: startQuest.id);
+    game.updateSimulatedPosition(startQuest.y, startQuest.x);
+    if (mounted) {
+      _mapController.move(LatLng(startQuest.y, startQuest.x), 17.4);
+    }
+
+    var index = 1;
+    _testRouteTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
+      if (!mounted || !_runningTestRoute) {
+        timer.cancel();
+        return;
+      }
+
+      if (index >= routeQuests.length) {
+        timer.cancel();
+        unawaited(_stopTestRoute());
+        return;
+      }
+
+      final quest = routeQuests[index++];
+      game.updateSimulatedPosition(quest.y, quest.x);
+      if (mounted) {
+        _mapController.move(LatLng(quest.y, quest.x), 17.4);
+      }
+    });
+  }
+
+  Future<void> _stopTestRoute() async {
+    _testRouteTimer?.cancel();
+    _testRouteTimer = null;
+    final game = context.read<HuntGameState>();
+    game.setTestMode(false);
+    if (mounted) {
+      setState(() => _runningTestRoute = false);
+    } else {
+      _runningTestRoute = false;
+    }
+    await game.startGpsTracking();
+  }
+
+  List<HuntQuest> _orderedRouteQuests(HuntGameState game) {
+    final quests = List<HuntQuest>.from(game.quests);
+    quests.sort((a, b) => _questNumber(a).compareTo(_questNumber(b)));
+    return quests.where((q) => _questNumber(q) >= 1).toList(growable: false);
   }
 
   Color _rarityColor(DierZeldzaamheid rarity) {
@@ -803,41 +1148,6 @@ class _MapScreenState extends State<MapScreen>
     );
   }
 
-  int? _nearestFaunaMeters(HuntGameState game) {
-    if (!game.hasLiveLocation) return null;
-    final lat = game.liveLat!;
-    final lon = game.liveLon!;
-    double? nearest;
-    for (final spawn in game.spawns) {
-      if (spawn.gevangen) continue;
-      final d = _distanceMeters(lat, lon, spawn.y, spawn.x);
-      if (nearest == null || d < nearest) nearest = d;
-    }
-    if (nearest == null) return null;
-    return nearest.round();
-  }
-
-  int? _nearestQuestMeters(HuntGameState game) {
-    if (!game.hasLiveLocation) return null;
-    final lat = game.liveLat!;
-    final lon = game.liveLon!;
-    double? nearest;
-    for (final quest in game.quests) {
-      if (quest.opgelost || quest.mislukt) continue;
-      final d = _distanceMeters(lat, lon, quest.y, quest.x);
-      if (nearest == null || d < nearest) nearest = d;
-    }
-    if (nearest == null) return null;
-    return nearest.round();
-  }
-
-  Color _distanceToneColor(int? meters) {
-    if (meters == null) return const Color(0xFF4D331D);
-    final t = ((meters.clamp(0, 100) as num).toDouble()) / 100.0;
-    return Color.lerp(const Color(0xFF2E7D32), const Color(0xFFC62828), t) ??
-        const Color(0xFF4D331D);
-  }
-
   double _distanceMeters(
     double lat1,
     double lon1,
@@ -876,45 +1186,45 @@ class _MapScreenState extends State<MapScreen>
     final phi2 = _toRad(centerLat);
     final dLon = _toRad(centerLon - fromLon);
     final y = math.sin(dLon) * math.cos(phi2);
-    final x = math.cos(phi1) * math.sin(phi2) -
-        math.sin(phi1) * math.cos(phi2) * math.cos(dLon);
+    final x = math.cos(phi1) * math.sin(phi2) - math.sin(phi1) * math.cos(phi2) * math.cos(dLon);
     final bearing = math.atan2(y, x) * 180.0 / math.pi;
     return (bearing + 360.0) % 360.0;
   }
 
+  // ignore: unused_element
   Widget _nearestChip({
     required IconData icon,
     required Color iconColor,
     required String label,
     required Color labelColor,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8EED8).withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFD7C29A), width: 1),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: iconColor, size: 16),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: labelColor,
-                fontWeight: FontWeight.w800,
-                fontSize: 11,
-              ),
-            ),
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8EED8).withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFD7C29A), width: 1),
           ),
-        ],
-      ),
-    );
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: iconColor, size: 16),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: labelColor,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
   }
 
   Widget _playerDirectionalMarker({
@@ -922,7 +1232,7 @@ class _MapScreenState extends State<MapScreen>
   }) {
     final hasTargetBearing = targetBearingDegrees != null && targetBearingDegrees >= 0;
     final targetAngleRad =
-        hasTargetBearing ? (targetBearingDegrees! * math.pi / 180.0) : 0.0;
+        hasTargetBearing ? (targetBearingDegrees * math.pi / 180.0) : 0.0;
 
     return IgnorePointer(
       child: Center(
@@ -985,42 +1295,168 @@ class _SearchAreaConePainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class _NearestChipStatic extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
+class _SearchAreaShadePainter extends CustomPainter {
+  final MapCamera camera;
+  final List<LatLng> polygon;
 
-  const _NearestChipStatic({
-    required this.icon,
-    required this.label,
-    required this.color,
+  const _SearchAreaShadePainter({
+    required this.camera,
+    required this.polygon,
   });
 
   @override
+  void paint(Canvas canvas, Size size) {
+    if (polygon.length < 3) return;
+
+    final maskPath = ui.Path()..addRect(Offset.zero & size);
+    final polygonPath = ui.Path();
+    for (var index = 0; index < polygon.length; index++) {
+      final point = camera.latLngToScreenOffset(polygon[index]);
+      if (index == 0) {
+        polygonPath.moveTo(point.dx, point.dy);
+      } else {
+        polygonPath.lineTo(point.dx, point.dy);
+      }
+    }
+    polygonPath.close();
+    maskPath.addPath(polygonPath, Offset.zero);
+    maskPath.fillType = ui.PathFillType.evenOdd;
+
+    canvas.drawPath(
+      maskPath,
+      Paint()..color = Colors.black.withValues(alpha: 0.70),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _SearchAreaShadePainter oldDelegate) => true;
+}
+
+class _HoldToCapture extends StatefulWidget {
+  final VoidCallback onCapture;
+  final VoidCallback? onTapFeedback;
+  final Widget child;
+
+  const _HoldToCapture({
+    required this.onCapture,
+    this.onTapFeedback,
+    required this.child,
+  });
+
+  @override
+  State<_HoldToCapture> createState() => _HoldToCaptureState();
+}
+
+class _HoldToCaptureState extends State<_HoldToCapture>
+    with SingleTickerProviderStateMixin {
+  static const double _ringSize = 84;
+  static const double _incrementPerTap = 0.05;
+  static const double _decayPerTick = 0.01;
+  static const Duration _tickDuration = Duration(milliseconds: 120);
+  static const Duration _tapGracePeriod = Duration(milliseconds: 220);
+
+  Timer? _decayTimer;
+  late final AnimationController _pulseController;
+  DateTime? _lastTapAt;
+  double _progress = 0.0;
+  bool _captureTriggered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+
+    _decayTimer = Timer.periodic(_tickDuration, (_) {
+      if (!mounted || _captureTriggered) return;
+      final lastTapAt = _lastTapAt;
+      if (lastTapAt == null) return;
+      final idleFor = DateTime.now().difference(lastTapAt);
+      if (idleFor < _tapGracePeriod) return;
+      if (_progress <= 0) return;
+      setState(() {
+        _progress = (_progress - _decayPerTick).clamp(0.0, 1.0);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _decayTimer?.cancel();
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  void _onTapFast() {
+    if (_captureTriggered) return;
+    widget.onTapFeedback?.call();
+    _lastTapAt = DateTime.now();
+    final next = (_progress + _incrementPerTap).clamp(0.0, 1.0);
+    if (next >= 1.0) {
+      setState(() {
+        _progress = 1.0;
+        _captureTriggered = true;
+      });
+      widget.onCapture();
+      return;
+    }
+    setState(() => _progress = next);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8EED8).withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFD7C29A), width: 1),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 16),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w800,
-              fontSize: 11,
+    return GestureDetector(
+      onTap: _onTapFast,
+      behavior: HitTestBehavior.translucent,
+      child: SizedBox(
+        width: _ringSize,
+        height: _ringSize,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            widget.child,
+            AnimatedBuilder(
+              animation: _pulseController,
+              builder: (context, _) {
+                final pulseScale = 1.0 + (_pulseController.value * 0.08);
+                return Transform.scale(
+                  scale: pulseScale,
+                  child: SizedBox(
+                    width: _ringSize,
+                    height: _ringSize,
+                    child: CircularProgressIndicator(
+                      value: _progress,
+                      strokeWidth: 10,
+                      backgroundColor: Colors.white.withValues(alpha: 0.34),
+                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF2E7D32)),
+                    ),
+                  ),
+                );
+              },
             ),
-          ),
-        ],
+            IgnorePointer(
+              child: Container(
+                width: _ringSize,
+                height: _ringSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2E7D32).withValues(
+                        alpha: 0.14 + (_pulseController.value * 0.12),
+                      ),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1040,55 +1476,61 @@ class _QuestQuizScreenState extends State<_QuestQuizScreen> {
   int? _selectedIndex;
   bool _showCorrectOverlay = false;
 
-  static const List<_QuizItem> _bank = [
+  List<_QuizItem> _bank(LanguageProvider language) => [
     _QuizItem(
-      question: 'Welk dier slaapt in de winter vaak in een hol?',
-      options: ['Egel', 'Havik', 'Specht', 'Valk'],
+      question: language.isEnglish
+          ? 'Which animal often sleeps in a den during winter?'
+          : 'Welk dier slaapt in de winter vaak in een hol?',
+      options: language.isEnglish
+          ? ['Hedgehog', 'Hawk', 'Woodpecker', 'Falcon']
+          : ['Egel', 'Havik', 'Specht', 'Valk'],
       correctIndex: 0,
     ),
     _QuizItem(
-      question: 'Welke boom heeft eikels?',
-      options: ['Eik', 'Wilg', 'Populier', 'Den'],
+      question: language.isEnglish ? 'Which tree has acorns?' : 'Welke boom heeft eikels?',
+      options: language.isEnglish ? ['Oak', 'Willow', 'Poplar', 'Pine'] : ['Eik', 'Wilg', 'Populier', 'Den'],
       correctIndex: 0,
     ),
     _QuizItem(
-      question: 'Welk dier kan vliegen?',
-      options: ['Haas', 'Muis', 'Bosuil', 'Mol'],
+      question: language.isEnglish ? 'Which animal can fly?' : 'Welk dier kan vliegen?',
+      options: language.isEnglish ? ['Hare', 'Mouse', 'Tawny owl', 'Mole'] : ['Haas', 'Muis', 'Bosuil', 'Mol'],
       correctIndex: 2,
     ),
     _QuizItem(
-      question: 'Waar woont een mol vooral?',
-      options: ['Onder de grond', 'In een nest hoog', 'In het water', 'Op een rots'],
+      question: language.isEnglish ? 'Where does a mole mostly live?' : 'Waar woont een mol vooral?',
+      options: language.isEnglish
+          ? ['Underground', 'High in a nest', 'In water', 'On a rock']
+          : ['Onder de grond', 'In een nest hoog', 'In het water', 'Op een rots'],
       correctIndex: 0,
     ),
     _QuizItem(
-      question: 'Welke kleur hebben bladeren meestal in de lente?',
-      options: ['Groen', 'Blauw', 'Paars', 'Zwart'],
+      question: language.isEnglish ? 'What color are leaves usually in spring?' : 'Welke kleur hebben bladeren meestal in de lente?',
+      options: language.isEnglish ? ['Green', 'Blue', 'Purple', 'Black'] : ['Groen', 'Blauw', 'Paars', 'Zwart'],
       correctIndex: 0,
     ),
     _QuizItem(
-      question: 'Welk dier heeft stekels?',
-      options: ['Egel', 'Ree', 'Haas', 'Das'],
+      question: language.isEnglish ? 'Which animal has spines?' : 'Welk dier heeft stekels?',
+      options: language.isEnglish ? ['Hedgehog', 'Roe deer', 'Hare', 'Badger'] : ['Egel', 'Ree', 'Haas', 'Das'],
       correctIndex: 0,
     ),
     _QuizItem(
-      question: 'Wat hoor je vaak in het bos?',
-      options: ['Vogelgeluiden', 'Treinhoorn', 'Scheepshoorn', 'Sirene'],
+      question: language.isEnglish ? 'What do you often hear in the forest?' : 'Wat hoor je vaak in het bos?',
+      options: language.isEnglish ? ['Birdsong', 'Train horn', 'Ship horn', 'Siren'] : ['Vogelgeluiden', 'Treinhoorn', 'Scheepshoorn', 'Sirene'],
       correctIndex: 0,
     ),
     _QuizItem(
-      question: 'Welke vogel is een nachtjager?',
-      options: ['Bosuil', 'Havik', 'Specht', 'Valk'],
+      question: language.isEnglish ? 'Which bird is a night hunter?' : 'Welke vogel is een nachtjager?',
+      options: language.isEnglish ? ['Tawny owl', 'Hawk', 'Woodpecker', 'Falcon'] : ['Bosuil', 'Havik', 'Specht', 'Valk'],
       correctIndex: 0,
     ),
     _QuizItem(
-      question: 'Welk dier heeft een grote pluimstaart?',
-      options: ['Eekhoorn', 'Pad', 'Mol', 'Ringslang'],
+      question: language.isEnglish ? 'Which animal has a big bushy tail?' : 'Welk dier heeft een grote pluimstaart?',
+      options: language.isEnglish ? ['Squirrel', 'Toad', 'Mole', 'Grass snake'] : ['Eekhoorn', 'Pad', 'Mol', 'Ringslang'],
       correctIndex: 0,
     ),
     _QuizItem(
-      question: 'Wat neem je mee voor een boswandeling?',
-      options: ['Stevige schoenen', 'Schaatsen', 'Zwembril', 'Parasol'],
+      question: language.isEnglish ? 'What should you take for a forest walk?' : 'Wat neem je mee voor een boswandeling?',
+      options: language.isEnglish ? ['Sturdy shoes', 'Skates', 'Swimming goggles', 'Umbrella'] : ['Stevige schoenen', 'Schaatsen', 'Zwembril', 'Parasol'],
       correctIndex: 0,
     ),
   ];
@@ -1100,19 +1542,22 @@ class _QuestQuizScreenState extends State<_QuestQuizScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageProvider>();
     final stopNumber = _stopNumber();
+    final questTitle = language.questTitle(widget.quest.id);
     if (stopNumber == 1) {
       return _buildStartScreen(context);
     }
+    final bank = _bank(language);
     final idx =
-        (((stopNumber - 2).clamp(0, _bank.length - 1) as int) % _bank.length);
-    final q = _bank[idx];
+      ((stopNumber - 2).clamp(0, bank.length - 1) % bank.length);
+    final q = bank[idx];
     final questImageAsset = 'assets/quests/$stopNumber.jpeg';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3E5C8),
       appBar: AppBar(
-        title: Text(widget.quest.titel),
+        title: Text(questTitle),
         backgroundColor: const Color(0xFFF8EED8),
         foregroundColor: const Color(0xFF4D331D),
       ),
@@ -1193,8 +1638,11 @@ class _QuestQuizScreenState extends State<_QuestQuizScreen> {
                                       SnackBar(
                                         content: Text(
                                           nextQuestDisplay == null
-                                              ? 'Deze quest is nog niet beschikbaar.'
-                                              : 'Doe eerst quest $nextQuestDisplay voor je een nieuwe letter krijgt.',
+                                              ? language.t('quest_not_available')
+                                              : language.t(
+                                                  'quest_next_letter_hint',
+                                                  values: {'number': '$nextQuestDisplay'},
+                                                ),
                                         ),
                                       ),
                                     );
@@ -1208,8 +1656,8 @@ class _QuestQuizScreenState extends State<_QuestQuizScreen> {
 
                                   if (result != QuestSolveResult.success) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Deze stop is al afgerond.'),
+                                      SnackBar(
+                                        content: Text(language.t('quest_already_done')),
                                       ),
                                     );
                                     await Future<void>.delayed(
@@ -1229,8 +1677,8 @@ class _QuestQuizScreenState extends State<_QuestQuizScreen> {
                                 }
 
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Niet goed, probeer een andere stop.'),
+                                  SnackBar(
+                                    content: Text(language.t('quest_wrong_stop')),
                                   ),
                                 );
                                 await AudioService.instance.playWrongAnswer();
@@ -1286,13 +1734,13 @@ class _QuestQuizScreenState extends State<_QuestQuizScreen> {
           ),
           if (_showCorrectOverlay) ...[
             const _ConfettiBurst(),
-            const Positioned(
+            Positioned(
               top: 34,
               left: 0,
               right: 0,
               child: Center(
                 child: Text(
-                  'Correct!',
+                  language.t('correct'),
                   style: TextStyle(
                     color: Color(0xFF2E7D32),
                     fontSize: 36,
@@ -1314,10 +1762,12 @@ class _QuestQuizScreenState extends State<_QuestQuizScreen> {
   }
 
   Widget _buildStartScreen(BuildContext context) {
+    final language = context.watch<LanguageProvider>();
+    final questTitle = language.questTitle(widget.quest.id);
     return Scaffold(
       backgroundColor: const Color(0xFFF3E5C8),
       appBar: AppBar(
-        title: Text(widget.quest.titel),
+        title: Text(questTitle),
         backgroundColor: const Color(0xFFF8EED8),
         foregroundColor: const Color(0xFF4D331D),
       ),
@@ -1336,20 +1786,20 @@ class _QuestQuizScreenState extends State<_QuestQuizScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Klaar voor de Start?',
+                  Text(
+                    language.t('ready_for_start'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 30,
                       fontWeight: FontWeight.w900,
                       color: Color(0xFF4D331D),
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const Text(
-                    'Druk op OK om de timer te starten.',
+                  Text(
+                    language.t('press_ok_to_start_timer'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF6A4A2B),
@@ -1367,9 +1817,9 @@ class _QuestQuizScreenState extends State<_QuestQuizScreen> {
                         if (!context.mounted) return;
                         if (!started) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(
-                                'Ga eerst naar de startlocatie en probeer opnieuw.',
+                                language.t('quest_start_hint'),
                               ),
                             ),
                           );
@@ -1379,7 +1829,7 @@ class _QuestQuizScreenState extends State<_QuestQuizScreen> {
                         if (!context.mounted) return;
                         Navigator.of(context).pop();
                       },
-                      child: const Text('OK'),
+                      child: Text(language.t('ok')),
                     ),
                   ),
                 ],
@@ -1473,6 +1923,7 @@ class _ConfettiPiece {
     required this.color,
   });
 }
+
 class _QuizItem {
   final String question;
   final List<String> options;

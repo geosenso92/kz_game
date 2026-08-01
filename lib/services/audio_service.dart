@@ -1,12 +1,18 @@
 import 'package:audioplayers/audioplayers.dart';
 
+import '../providers/volume_provider.dart';
+
 class AudioService {
   AudioService._();
 
   static final AudioService instance = AudioService._();
 
-  static const double _backgroundVolume = 0.18;
+  static const double _backgroundVolume = 0.36;
   static const double _instructionBackgroundDuckedVolume = 0.015;
+
+  // Master volume wordt via VolumeProvider toegepast.
+  // Voor gebruikersgevoel willen we SFX/animal cues (en alle niet-background audio) ~70%.
+  static const double _nonBackgroundVolumeMultiplier = 0.7;
   static const String _collectObjectAsset = 'audio/collectobject.mp3';
   static const String _correctAnswerAsset = 'audio/correct.mp3';
   static const String _wrongAnswerAsset = 'audio/wrong.mp3';
@@ -14,7 +20,8 @@ class AudioService {
   static const String _timerWarningAsset = 'audio/timer.mp3';
   static const String _congratsAsset = 'audio/congrats.mp3';
   static const String _instructionAsset = 'audio/instruction.mp3';
-  static const double _instructionPlaybackRate = 1.1;
+  static const String _backgroundAsset = 'audio/birds_background.mp3';
+  static const double _instructionPlaybackRate = 1.0;
   static const Map<String, String> _animalCueByName = <String, String>{
     'edelhert': 'audio/deer.mp3',
     'wolf': 'audio/wolf.mp3',
@@ -37,15 +44,29 @@ class AudioService {
   double _lastAppliedBackgroundVolume = -1;
 
   Future<void> startBackgroundMusic() async {
+    if (!VolumeProvider().backgroundEnabled) return;
     if (_backgroundStarted) return;
-    _backgroundStarted = true;
+    try {
+      await _ensurePlayersCanMixAudio();
+      await _backgroundPlayer.setReleaseMode(ReleaseMode.loop);
+      await _backgroundPlayer.setVolume(0.0);
+      _wireBackgroundFadeLoop();
+      await _backgroundPlayer.play(AssetSource(_backgroundAsset));
+      _backgroundStarted = true;
+      _fadeInBackgroundMusic();
+    } catch (_) {
+      _backgroundStarted = false;
+    }
+  }
 
-    await _ensurePlayersCanMixAudio();
-    await _backgroundPlayer.setReleaseMode(ReleaseMode.loop);
-    await _backgroundPlayer.setVolume(0.0);
-    _wireBackgroundFadeLoop();
-    await _backgroundPlayer.play(AssetSource('audio/background.mp3'));
-    _fadeInBackgroundMusic();
+  Future<void> stopBackgroundMusic() async {
+    _backgroundStarted = false;
+    try {
+      await _backgroundPlayer.stop();
+      await _backgroundPlayer.setVolume(0.0);
+    } catch (_) {
+      // Ignore stop failures.
+    }
   }
 
   Future<void> _ensurePlayersCanMixAudio() async {
@@ -83,10 +104,12 @@ class AudioService {
     const stepDuration = Duration(milliseconds: 140);
     for (var i = 1; i <= steps; i++) {
       final v = (_backgroundVolume * i) / steps;
-      await _backgroundPlayer.setVolume(v);
+      final adjusted = _getAdjustedVolume(v);
+      await _backgroundPlayer.setVolume(adjusted);
       await Future<void>.delayed(stepDuration);
     }
-    await _backgroundPlayer.setVolume(_backgroundVolume);
+    final adjusted = _getAdjustedVolume(_backgroundVolume);
+    await _backgroundPlayer.setVolume(adjusted);
     _isFadingIn = false;
   }
 
@@ -94,9 +117,10 @@ class AudioService {
     if (_isFadingIn) return;
     if (_isBackgroundDuckedForInstruction) {
       final ducked = _instructionBackgroundDuckedVolume;
-      if ((ducked - _lastAppliedBackgroundVolume).abs() < 0.015) return;
-      _lastAppliedBackgroundVolume = ducked;
-      _backgroundPlayer.setVolume(ducked);
+      final adjusted = _getAdjustedVolume(ducked);
+      if ((adjusted - _lastAppliedBackgroundVolume).abs() < 0.015) return;
+      _lastAppliedBackgroundVolume = adjusted;
+      _backgroundPlayer.setVolume(adjusted);
       return;
     }
     final duration = _backgroundDuration;
@@ -115,9 +139,10 @@ class AudioService {
     }
 
     final target = _backgroundVolume * factor;
-    if ((target - _lastAppliedBackgroundVolume).abs() < 0.015) return;
-    _lastAppliedBackgroundVolume = target;
-    _backgroundPlayer.setVolume(target);
+    final adjusted = _getAdjustedVolume(target);
+    if ((adjusted - _lastAppliedBackgroundVolume).abs() < 0.015) return;
+    _lastAppliedBackgroundVolume = adjusted;
+    _backgroundPlayer.setVolume(adjusted);
   }
 
   Future<void> playAnimalCueByName(String animalName) async {
@@ -152,6 +177,9 @@ class AudioService {
     await _ensurePlayersCanMixAudio();
     await duckBackgroundForInstruction();
     await _instructionPlayer.setPlaybackRate(_instructionPlaybackRate);
+    final volume = _getAdjustedNonBackgroundVolume(1.0);
+    await _instructionPlayer.setVolume(volume);
+
     if (restart) {
       await _instructionPlayer.stop();
       await _instructionPlayer.play(AssetSource(_instructionAsset));
@@ -184,7 +212,9 @@ class AudioService {
     await _ensurePlayersCanMixAudio();
     _timerWarningActive = true;
     await _timerWarningPlayer.stop();
-    await _timerWarningPlayer.setVolume(1.0);
+    final volume = _getAdjustedNonBackgroundVolume(1.0);
+    await _timerWarningPlayer.setVolume(volume);
+
     await _timerWarningPlayer.play(AssetSource(_timerWarningAsset));
   }
 
@@ -195,16 +225,36 @@ class AudioService {
   }
 
   Future<void> _playSfx(String asset) async {
+
+    if (!_backgroundStarted) {
+      await startBackgroundMusic();
+    }
     await _ensurePlayersCanMixAudio();
     await _sfxPlayer.stop();
-    await _sfxPlayer.setVolume(1.0);
+    final volume = _getAdjustedNonBackgroundVolume(1.0);
+    await _sfxPlayer.setVolume(volume);
+
     await _sfxPlayer.play(AssetSource(asset));
   }
 
   Future<void> _playAnimalCue(String asset) async {
+    if (!_backgroundStarted) {
+      await startBackgroundMusic();
+    }
     await _ensurePlayersCanMixAudio();
     await _animalCuePlayer.stop();
-    await _animalCuePlayer.setVolume(1.0);
+    final volume = _getAdjustedNonBackgroundVolume(1.0);
+    await _animalCuePlayer.setVolume(volume);
     await _animalCuePlayer.play(AssetSource(asset));
+  }
+
+  /// Gets volume adjusted by master volume multiplier.
+  /// Alle *niet-background* audio wordt ook nog ~70% zachter.
+  double _getAdjustedVolume(double baseVolume) {
+    return baseVolume * VolumeProvider().volumeMultiplier;
+  }
+
+  double _getAdjustedNonBackgroundVolume(double baseVolume) {
+    return baseVolume * VolumeProvider().volumeMultiplier * _nonBackgroundVolumeMultiplier;
   }
 }

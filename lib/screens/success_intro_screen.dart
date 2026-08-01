@@ -1,17 +1,19 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:vibration/vibration.dart';
 
+import '../providers/language_provider.dart';
 import 'instruction_intro_screen.dart';
 
 class SuccessIntroScreen extends StatefulWidget {
   final String nickname;
-  final String? imagePath;
 
   const SuccessIntroScreen({
     super.key,
     required this.nickname,
-    this.imagePath,
   });
 
   @override
@@ -54,6 +56,7 @@ class _SuccessIntroScreenState extends State<SuccessIntroScreen>
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
 
+    _triggerSuccessVibration();
     _controller.forward();
     Future<void>.delayed(const Duration(seconds: 5), () {
       if (!mounted) return;
@@ -61,6 +64,23 @@ class _SuccessIntroScreenState extends State<SuccessIntroScreen>
         MaterialPageRoute(builder: (_) => const InstructionIntroScreen()),
       );
     });
+  }
+
+  Future<void> _triggerSuccessVibration() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final hasVibrator = await Vibration.hasVibrator();
+      if (hasVibrator) {
+        await Vibration.vibrate(
+          pattern: const [0, 900, 260, 900],
+          intensities: const [0, 220, 0, 220],
+        );
+        return;
+      }
+    } catch (_) {
+      // Fall back to generic haptic feedback when plugin vibration is unavailable.
+    }
+    await HapticFeedback.vibrate();
   }
 
   @override
@@ -72,30 +92,24 @@ class _SuccessIntroScreenState extends State<SuccessIntroScreen>
 
   @override
   Widget build(BuildContext context) {
-    final photoPath = widget.imagePath?.trim();
-    final hasPhoto = photoPath != null && photoPath.isNotEmpty;
-    final resolvedPhotoPath = hasPhoto ? photoPath! : null;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+    final backgroundAsset = isLandscape
+        ? 'assets/loadscreen_landscape.png'
+        : 'assets/loadscreen_portrait.png';
 
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
         children: [
-          if (hasPhoto)
-            Image.file(
-              File(resolvedPhotoPath!),
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Image.asset(
-                'assets/Tinkerbell2.png',
-                fit: BoxFit.cover,
-              ),
-            )
-          else
-            Image.asset(
-              'assets/Tinkerbell2.png',
-              fit: BoxFit.cover,
-            ),
+          Image.asset(
+            backgroundAsset,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+          ),
           Container(
-            color: Colors.black.withValues(alpha: hasPhoto ? 0.24 : 0.35),
+            color: Colors.black.withValues(alpha: 0.35),
           ),
           Center(
             child: FadeTransition(
@@ -139,12 +153,8 @@ class _SuccessIntroScreenState extends State<SuccessIntroScreen>
 
   String _successLabel() {
     final name = widget.nickname.trim();
-    final lower = name.toLowerCase();
-    final isTeam = lower.startsWith('team ') ||
-        lower.startsWith('groep ') ||
-        lower.startsWith('klas ') ||
-        lower.startsWith('familie ');
-    return isTeam ? 'Succes $name!' : 'Succes, $name!';
+    final language = context.read<LanguageProvider>();
+    return language.t('success_label', values: {'name': name});
   }
 
   Widget _sparkle({

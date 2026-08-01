@@ -12,8 +12,7 @@ class AreaService {
 
   Future<List<({double x, double y})>> loadPolygon() async {
     const paths = [
-      'assets/bosgebied.geojson',
-      'assets/areas/search_area.geojson',
+      'assets/searcharea2.geojson',
     ];
 
     for (final path in paths) {
@@ -47,7 +46,7 @@ class AreaService {
   }
 
   Future<List<({double x, double y})>> loadFaunaPoints() async {
-    const path = 'assets/fauna.geojson';
+    const path = 'assets/fauna3.geojson';
     try {
       final raw = await rootBundle.loadString(path);
       final json = jsonDecode(raw);
@@ -59,7 +58,7 @@ class AreaService {
   }
 
   Future<List<({int featureNumber, double x, double y})>> loadQuestStops() async {
-    const path = 'assets/quests/quests.geojson';
+    const path = 'assets/quests/opdrachten2.geojson';
     try {
       final raw = await rootBundle.loadString(path);
       final json = jsonDecode(raw);

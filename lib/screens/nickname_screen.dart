@@ -1,11 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../models/speler_profiel.dart';
 import '../providers/hunt_game_state.dart';
+import '../providers/language_provider.dart';
 import '../services/audio_service.dart';
 import 'success_intro_screen.dart';
 
@@ -25,32 +23,12 @@ class NicknameScreen extends StatefulWidget {
 
 class _NicknameScreenState extends State<NicknameScreen> {
   final TextEditingController _controller = TextEditingController();
-  final ImagePicker _picker = ImagePicker();
   bool _saving = false;
-  File? _photo;
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
-  }
-
-  Future<void> _takePhoto() async {
-    AudioService.instance.playClickButton();
-    try {
-      final file = await _picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 85,
-        maxWidth: 1400,
-      );
-      if (file == null) return;
-      setState(() => _photo = File(file.path));
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Camera kon niet worden geopend op dit toestel.')),
-      );
-    }
   }
 
   Future<void> _confirm() async {
@@ -60,32 +38,21 @@ class _NicknameScreenState extends State<NicknameScreen> {
     final nickname = _controller.text.trim();
     if (nickname.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vul een nickname of groepsnaam in.')),
+        SnackBar(content: Text(context.read<LanguageProvider>().t('nickname_error'))),
       );
       return;
     }
-    if (_photo == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Maak eerst een foto voordat je bevestigt.')),
-      );
-      return;
-    }
-
     setState(() => _saving = true);
     await context.read<HuntGameState>().selectThema(
           leeftijdsgroep: widget.leeftijdsgroep,
           spelerType: widget.spelerType,
           nickname: nickname,
-          photoPath: _photo?.path,
         );
 
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
-        builder: (_) => SuccessIntroScreen(
-          nickname: nickname,
-          imagePath: _photo?.path,
-        ),
+        builder: (_) => SuccessIntroScreen(nickname: nickname),
       ),
       (route) => false,
     );
@@ -93,13 +60,23 @@ class _NicknameScreenState extends State<NicknameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageProvider>();
     final isGirlsTheme = widget.spelerType == SpelerType.meisje;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+    final backgroundAsset = isLandscape
+        ? 'assets/loadscreen_landscape.png'
+        : 'assets/loadscreen_portrait.png';
 
     return Scaffold(
       body: Stack(
-        fit: StackFit.expand,
         children: [
-          Image.asset('assets/Tinkerbell2.png', fit: BoxFit.cover),
+          Image.asset(
+            backgroundAsset,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+          ),
           Container(color: Colors.black.withValues(alpha: 0.33)),
           SafeArea(
             child: Center(
@@ -121,8 +98,14 @@ class _NicknameScreenState extends State<NicknameScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      Image.asset(
+                        'assets/logo.png',
+                        height: 86,
+                        fit: BoxFit.contain,
+                      ),
+                      const SizedBox(height: 10),
                       Text(
-                        'Vul je nickname of groepsnaam in',
+                        language.t('nickname_prompt'),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 23,
@@ -130,29 +113,12 @@ class _NicknameScreenState extends State<NicknameScreen> {
                           color: isGirlsTheme ? const Color(0xFFA2356D) : const Color(0xFF1C4C9D),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: SizedBox(
-                          height: 180,
-                          width: double.infinity,
-                          child: _photo != null
-                              ? Image.file(_photo!, fit: BoxFit.cover)
-                              : Image.asset('assets/Tinkerbell2.png', fit: BoxFit.cover),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      OutlinedButton.icon(
-                        onPressed: _takePhoto,
-                        icon: const Icon(Icons.camera_alt),
-                        label: const Text('Maak foto'),
-                      ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 14),
                       TextField(
                         controller: _controller,
                         textInputAction: TextInputAction.done,
                         decoration: InputDecoration(
-                          hintText: 'Bijv. Team Speurneus',
+                          hintText: language.t('nickname_hint'),
                           filled: true,
                           fillColor: const Color(0xFFF7F3E9),
                           border: OutlineInputBorder(
@@ -186,8 +152,8 @@ class _NicknameScreenState extends State<NicknameScreen> {
                                   height: 20,
                                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                 )
-                              : const Text(
-                                  'Bevestigen',
+                              : Text(
+                                  language.t('confirm'),
                                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                                 ),
                         ),

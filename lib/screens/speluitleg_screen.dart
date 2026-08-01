@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/language_provider.dart';
 
 class SpeluitlegScreen extends StatefulWidget {
   const SpeluitlegScreen({super.key});
@@ -8,13 +11,6 @@ class SpeluitlegScreen extends StatefulWidget {
 }
 
 class _SpeluitlegScreenState extends State<SpeluitlegScreen> {
-  static const List<String> _pages = <String>[
-    'assets/roads.png',
-    'assets/animals.png',
-    'assets/word.png',
-    'assets/ticks.png',
-  ];
-
   final PageController _pageController = PageController();
   int _pageIndex = 0;
 
@@ -25,7 +21,8 @@ class _SpeluitlegScreenState extends State<SpeluitlegScreen> {
   }
 
   void _goTo(int index) {
-    if (index < 0 || index >= _pages.length) return;
+    const pageCount = 2;
+    if (index < 0 || index >= pageCount) return;
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 260),
@@ -35,6 +32,11 @@ class _SpeluitlegScreenState extends State<SpeluitlegScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageProvider>();
+    final pages = language.isEnglish
+        ? const <String>['assets/spelregels_EN.png', 'assets/tips_EN.png']
+        : const <String>['assets/spelregels.png', 'assets/tips.png'];
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -59,7 +61,7 @@ class _SpeluitlegScreenState extends State<SpeluitlegScreen> {
                   ),
                   const Spacer(),
                   Text(
-                    '${_pageIndex + 1}/${_pages.length}',
+                    '${_pageIndex + 1}/${pages.length}',
                     style: const TextStyle(
                       color: Color(0xFFFFE9C9),
                       fontSize: 16,
@@ -73,7 +75,7 @@ class _SpeluitlegScreenState extends State<SpeluitlegScreen> {
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
-                itemCount: _pages.length,
+                itemCount: pages.length,
                 onPageChanged: (index) => setState(() => _pageIndex = index),
                 itemBuilder: (context, index) {
                   return Padding(
@@ -81,7 +83,7 @@ class _SpeluitlegScreenState extends State<SpeluitlegScreen> {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(16),
                       child: Image.asset(
-                        _pages[index],
+                        pages[index],
                         fit: BoxFit.contain,
                       ),
                     ),
@@ -115,7 +117,7 @@ class _SpeluitlegScreenState extends State<SpeluitlegScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _pageIndex < _pages.length - 1
+                      onPressed: _pageIndex < pages.length - 1
                           ? () => _goTo(_pageIndex + 1)
                           : null,
                       style: ElevatedButton.styleFrom(

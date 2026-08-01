@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/hunt_game_state.dart';
+import '../providers/language_provider.dart';
 import '../services/audio_service.dart';
 import '../widgets/game_top_bar.dart';
 import '../widgets/subtle_logo.dart';
@@ -15,58 +18,131 @@ class _AnimalEntry {
   final String id;
   final String name;
   final _AnimalRarity rarity;
-  final String lifeSpan;
-  final String type;
-  final String habitat;
-  final String offspring;
-  final String funFact;
+  final String lifeSpanNl;
+  final String lifeSpanEn;
+  final String typeNl;
+  final String typeEn;
+  final String habitatNl;
+  final String habitatEn;
+  final String offspringNl;
+  final String offspringEn;
+  final String funFactNl;
+  final String funFactEn;
 
   const _AnimalEntry({
     required this.id,
     required this.name,
     required this.rarity,
-    required this.lifeSpan,
-    required this.type,
-    required this.habitat,
-    required this.offspring,
-    required this.funFact,
+    required this.lifeSpanNl,
+    required this.lifeSpanEn,
+    required this.typeNl,
+    required this.typeEn,
+    required this.habitatNl,
+    required this.habitatEn,
+    required this.offspringNl,
+    required this.offspringEn,
+    required this.funFactNl,
+    required this.funFactEn,
   });
+
+    String lifeSpan(AppLanguage language) =>
+      language == AppLanguage.english ? lifeSpanEn : lifeSpanNl;
+    String type(AppLanguage language) =>
+      language == AppLanguage.english ? typeEn : typeNl;
+    String habitat(AppLanguage language) =>
+      language == AppLanguage.english ? habitatEn : habitatNl;
+    String offspring(AppLanguage language) =>
+      language == AppLanguage.english ? offspringEn : offspringNl;
+    String funFact(AppLanguage language) =>
+      language == AppLanguage.english ? funFactEn : funFactNl;
 }
 
 class CollectionScreen extends StatelessWidget {
   const CollectionScreen({super.key});
 
   static const List<_AnimalEntry> _animals = [
-    _AnimalEntry(id: 'Specht', name: 'Specht', rarity: _AnimalRarity.common, lifeSpan: '4-11 jaar', type: 'Vogel', habitat: 'Loof- en gemengde bossen', offspring: '4-6 eieren per broedsel', funFact: 'Spechten kunnen razendsnel tegen hout tikken.'),
-    _AnimalEntry(id: 'Mol', name: 'Mol', rarity: _AnimalRarity.common, lifeSpan: '2-6 jaar', type: 'Zoogdier', habitat: 'Vochtige graslanden en tuinen', offspring: '3-5 jongen per worp', funFact: 'Mollen graven tunnels met hun sterke voorpoten.'),
-    _AnimalEntry(id: 'Egel', name: 'Egel', rarity: _AnimalRarity.common, lifeSpan: '3-7 jaar', type: 'Zoogdier', habitat: 'Tuinen en heggen', offspring: '4-5 jongen per nest', funFact: 'Een egel heeft duizenden beschermende stekels.'),
-    _AnimalEntry(id: 'Eekhoorn', name: 'Eekhoorn', rarity: _AnimalRarity.common, lifeSpan: '3-7 jaar', type: 'Zoogdier', habitat: 'Bossen en parken', offspring: '2-4 jongen per nest', funFact: 'Eekhoorns verstoppen nootjes als voedselvoorraad.'),
-    _AnimalEntry(id: 'Salamander', name: 'Salamander', rarity: _AnimalRarity.common, lifeSpan: '10-20 jaar', type: 'Amfibie', habitat: 'Vochtige bossen', offspring: 'Tientallen larven per seizoen', funFact: 'Sommige salamanders kunnen lichaamsdelen herstellen.'),
-    _AnimalEntry(id: 'Havik', name: 'Havik', rarity: _AnimalRarity.common, lifeSpan: '10-17 jaar', type: 'Vogel', habitat: 'Bosrijke gebieden', offspring: '2-4 eieren per broedsel', funFact: 'Haviken zijn heel wendbaar tussen bomen.'),
-    _AnimalEntry(id: 'Muis', name: 'Muis', rarity: _AnimalRarity.common, lifeSpan: '1-3 jaar', type: 'Zoogdier', habitat: 'Velden en bebouwing', offspring: '5-8 jongen per worp', funFact: 'Muizen communiceren ook met ultrasoon geluid.'),
-    _AnimalEntry(id: 'Vleermuis', name: 'Vleermuis', rarity: _AnimalRarity.common, lifeSpan: '5-20 jaar', type: 'Zoogdier', habitat: 'Bossen en zolders', offspring: '1 jong per jaar', funFact: 'Vleermuizen orienteren zich via echolocatie.'),
-    _AnimalEntry(id: 'Haas', name: 'Haas', rarity: _AnimalRarity.common, lifeSpan: '4-8 jaar', type: 'Zoogdier', habitat: 'Open velden en akkers', offspring: '2-4 jongen per worp', funFact: 'Een haas kan zeer hoge snelheden halen.'),
-    _AnimalEntry(id: 'Pad', name: 'Pad', rarity: _AnimalRarity.common, lifeSpan: '10-12 jaar', type: 'Amfibie', habitat: 'Bossen en poelen', offspring: 'Duizenden eitjes per seizoen', funFact: 'Padden keren vaak terug naar dezelfde poel.'),
-    _AnimalEntry(id: 'Valk', name: 'Valk', rarity: _AnimalRarity.rare, lifeSpan: '10-15 jaar', type: 'Vogel', habitat: 'Open terrein en kliffen', offspring: '2-4 eieren per legsel', funFact: 'Valken behoren tot de snelste jagers ter wereld.'),
-    _AnimalEntry(id: 'Boommarter', name: 'Boommarter', rarity: _AnimalRarity.rare, lifeSpan: '8-12 jaar', type: 'Zoogdier', habitat: 'Structuurrijke bossen', offspring: '2-4 jongen per nest', funFact: 'Boommarters klimmen behendig van tak naar tak.'),
-    _AnimalEntry(id: 'Das', name: 'Das', rarity: _AnimalRarity.rare, lifeSpan: '6-14 jaar', type: 'Zoogdier', habitat: 'Bosranden en akkerland', offspring: '2-3 jongen per worp', funFact: 'Dassen wonen in uitgebreide ondergrondse burchten.'),
-    _AnimalEntry(id: 'Hazelworm', name: 'Hazelworm', rarity: _AnimalRarity.rare, lifeSpan: '15-30 jaar', type: 'Reptiel', habitat: 'Heide en ruige graslanden', offspring: '6-12 jongen per worp', funFact: 'De hazelworm is een pootloze hagedis.'),
-    _AnimalEntry(id: 'Vos', name: 'Vos', rarity: _AnimalRarity.rare, lifeSpan: '3-10 jaar', type: 'Zoogdier', habitat: 'Bos, duin en stadsrand', offspring: '4-6 welpen per worp', funFact: 'Vossen gebruiken hun staart als warme deken.'),
-    _AnimalEntry(id: 'Ree', name: 'Ree', rarity: _AnimalRarity.rare, lifeSpan: '8-16 jaar', type: 'Zoogdier', habitat: 'Bosrand en struweel', offspring: '1-2 kalveren per jaar', funFact: 'Reeën kunnen snel dekking zoeken met grote sprongen.'),
-    _AnimalEntry(id: 'Bosuil', name: 'Bosuil', rarity: _AnimalRarity.rare, lifeSpan: '10-18 jaar', type: 'Vogel', habitat: 'Oud bos en parken', offspring: '2-4 eieren per nest', funFact: 'Bosuilen jagen vooral op gehoor in het donker.'),
-    _AnimalEntry(id: 'Ringslang', name: 'Ringslang', rarity: _AnimalRarity.rare, lifeSpan: '10-20 jaar', type: 'Reptiel', habitat: 'Natte gebieden en waterkanten', offspring: '10-30 eieren per legsel', funFact: 'Ringslangen kunnen uitstekend zwemmen.'),
-    _AnimalEntry(id: 'Wolf', name: 'Wolf', rarity: _AnimalRarity.mystic, lifeSpan: '8-13 jaar', type: 'Zoogdier', habitat: 'Grote natuurgebieden', offspring: '4-6 welpen per worp', funFact: 'Wolven leven in sociale roedels.'),
-    _AnimalEntry(id: 'Edelhert', name: 'Edelhert', rarity: _AnimalRarity.mystic, lifeSpan: '12-18 jaar', type: 'Zoogdier', habitat: 'Bossen en heide', offspring: '1 kalf per jaar', funFact: 'Mannetjes burlen luid tijdens de bronsttijd.'),
-    _AnimalEntry(id: 'Adder', name: 'Adder', rarity: _AnimalRarity.mystic, lifeSpan: '10-20 jaar', type: 'Reptiel', habitat: 'Heide en bosranden', offspring: '5-15 levende jongen per worp', funFact: 'De adder is de enige inheemse giftige slang in NL.'),
-    _AnimalEntry(id: 'Oehoe', name: 'Oehoe', rarity: _AnimalRarity.mystic, lifeSpan: '15-25 jaar', type: 'Vogel', habitat: 'Rotsen en rustige bossen', offspring: '2-4 eieren per broedsel', funFact: 'De oehoe is een van de grootste uilen van Europa.'),
+    _AnimalEntry(id: 'Specht', name: 'Specht', rarity: _AnimalRarity.common, lifeSpanNl: '4-11 jaar', lifeSpanEn: '4-11 years', typeNl: 'Vogel', typeEn: 'Bird', habitatNl: 'Loof- en gemengde bossen', habitatEn: 'Deciduous and mixed forests', offspringNl: '4-6 eieren per broedsel', offspringEn: '4-6 eggs per brood', funFactNl: 'Spechten kunnen razendsnel tegen hout tikken.', funFactEn: 'Woodpeckers can drum on wood at very high speed.'),
+    _AnimalEntry(id: 'Egel', name: 'Egel', rarity: _AnimalRarity.common, lifeSpanNl: '3-7 jaar', lifeSpanEn: '3-7 years', typeNl: 'Zoogdier', typeEn: 'Mammal', habitatNl: 'Tuinen en heggen', habitatEn: 'Gardens and hedgerows', offspringNl: '4-5 jongen per nest', offspringEn: '4-5 young per litter', funFactNl: 'Een egel heeft duizenden beschermende stekels.', funFactEn: 'A hedgehog has thousands of protective spines.'),
+    _AnimalEntry(id: 'Eekhoorn', name: 'Eekhoorn', rarity: _AnimalRarity.common, lifeSpanNl: '3-7 jaar', lifeSpanEn: '3-7 years', typeNl: 'Zoogdier', typeEn: 'Mammal', habitatNl: 'Bossen en parken', habitatEn: 'Forests and parks', offspringNl: '2-4 jongen per nest', offspringEn: '2-4 young per litter', funFactNl: 'Eekhoorns verstoppen nootjes als voedselvoorraad.', funFactEn: 'Squirrels hide nuts as a food supply.'),
+    _AnimalEntry(id: 'Salamander', name: 'Salamander', rarity: _AnimalRarity.common, lifeSpanNl: '10-20 jaar', lifeSpanEn: '10-20 years', typeNl: 'Amfibie', typeEn: 'Amphibian', habitatNl: 'Vochtige bossen', habitatEn: 'Moist forests', offspringNl: 'Tientallen larven per seizoen', offspringEn: 'Dozens of larvae per season', funFactNl: 'Sommige salamanders kunnen lichaamsdelen herstellen.', funFactEn: 'Some salamanders can regenerate body parts.'),
+    _AnimalEntry(id: 'Havik', name: 'Havik', rarity: _AnimalRarity.common, lifeSpanNl: '10-17 jaar', lifeSpanEn: '10-17 years', typeNl: 'Vogel', typeEn: 'Bird', habitatNl: 'Bosrijke gebieden', habitatEn: 'Wooded areas', offspringNl: '2-4 eieren per broedsel', offspringEn: '2-4 eggs per brood', funFactNl: 'Haviken zijn heel wendbaar tussen bomen.', funFactEn: 'Hawks are very agile between trees.'),
+    _AnimalEntry(id: 'Muis', name: 'Muis', rarity: _AnimalRarity.common, lifeSpanNl: '1-3 jaar', lifeSpanEn: '1-3 years', typeNl: 'Zoogdier', typeEn: 'Mammal', habitatNl: 'Velden en bebouwing', habitatEn: 'Fields and built-up areas', offspringNl: '5-8 jongen per worp', offspringEn: '5-8 young per litter', funFactNl: 'Muizen communiceren ook met ultrasoon geluid.', funFactEn: 'Mice also communicate with ultrasonic sounds.'),
+    _AnimalEntry(id: 'Vleermuis', name: 'Vleermuis', rarity: _AnimalRarity.common, lifeSpanNl: '5-20 jaar', lifeSpanEn: '5-20 years', typeNl: 'Zoogdier', typeEn: 'Mammal', habitatNl: 'Bossen en zolders', habitatEn: 'Forests and attics', offspringNl: '1 jong per jaar', offspringEn: '1 young per year', funFactNl: 'Vleermuizen orienteren zich via echolocatie.', funFactEn: 'Bats navigate using echolocation.'),
+    _AnimalEntry(id: 'Pad', name: 'Pad', rarity: _AnimalRarity.common, lifeSpanNl: '10-12 jaar', lifeSpanEn: '10-12 years', typeNl: 'Amfibie', typeEn: 'Amphibian', habitatNl: 'Bossen en poelen', habitatEn: 'Forests and ponds', offspringNl: 'Duizenden eitjes per seizoen', offspringEn: 'Thousands of eggs per season', funFactNl: 'Padden keren vaak terug naar dezelfde poel.', funFactEn: 'Toads often return to the same pond.'),
+    _AnimalEntry(id: 'Valk', name: 'Valk', rarity: _AnimalRarity.rare, lifeSpanNl: '10-15 jaar', lifeSpanEn: '10-15 years', typeNl: 'Vogel', typeEn: 'Bird', habitatNl: 'Open terrein en kliffen', habitatEn: 'Open terrain and cliffs', offspringNl: '2-4 eieren per legsel', offspringEn: '2-4 eggs per clutch', funFactNl: 'Valken behoren tot de snelste jagers ter wereld.', funFactEn: 'Falcons are among the fastest hunters in the world.'),
+    _AnimalEntry(id: 'Boommarter', name: 'Boommarter', rarity: _AnimalRarity.rare, lifeSpanNl: '8-12 jaar', lifeSpanEn: '8-12 years', typeNl: 'Zoogdier', typeEn: 'Mammal', habitatNl: 'Structuurrijke bossen', habitatEn: 'Structurally rich forests', offspringNl: '2-4 jongen per nest', offspringEn: '2-4 young per litter', funFactNl: 'Boommarters klimmen behendig van tak naar tak.', funFactEn: 'Pine martens climb skillfully from branch to branch.'),
+    _AnimalEntry(id: 'Das', name: 'Das', rarity: _AnimalRarity.rare, lifeSpanNl: '6-14 jaar', lifeSpanEn: '6-14 years', typeNl: 'Zoogdier', typeEn: 'Mammal', habitatNl: 'Bosranden en akkerland', habitatEn: 'Forest edges and farmland', offspringNl: '2-3 jongen per worp', offspringEn: '2-3 young per litter', funFactNl: 'Dassen wonen in uitgebreide ondergrondse burchten.', funFactEn: 'Badgers live in extensive underground setts.'),
+    _AnimalEntry(id: 'Hazelworm', name: 'Hazelworm', rarity: _AnimalRarity.rare, lifeSpanNl: '15-30 jaar', lifeSpanEn: '15-30 years', typeNl: 'Reptiel', typeEn: 'Reptile', habitatNl: 'Heide en ruige graslanden', habitatEn: 'Heathland and rough grasslands', offspringNl: '6-12 jongen per worp', offspringEn: '6-12 young per litter', funFactNl: 'De hazelworm is een pootloze hagedis.', funFactEn: 'The slow worm is a legless lizard.'),
+    _AnimalEntry(id: 'Vos', name: 'Vos', rarity: _AnimalRarity.rare, lifeSpanNl: '3-10 jaar', lifeSpanEn: '3-10 years', typeNl: 'Zoogdier', typeEn: 'Mammal', habitatNl: 'Bos, duin en stadsrand', habitatEn: 'Forest, dunes and city edges', offspringNl: '4-6 welpen per worp', offspringEn: '4-6 cubs per litter', funFactNl: 'Vossen gebruiken hun staart als warme deken.', funFactEn: 'Foxes use their tail as a warm blanket.'),
+    _AnimalEntry(id: 'Ree', name: 'Ree', rarity: _AnimalRarity.rare, lifeSpanNl: '8-16 jaar', lifeSpanEn: '8-16 years', typeNl: 'Zoogdier', typeEn: 'Mammal', habitatNl: 'Bosrand en struweel', habitatEn: 'Forest edges and scrub', offspringNl: '1-2 kalveren per jaar', offspringEn: '1-2 fawns per year', funFactNl: 'Reeën kunnen snel dekking zoeken met grote sprongen.', funFactEn: 'Roe deer can quickly find cover with big leaps.'),
+    _AnimalEntry(id: 'Bosuil', name: 'Bosuil', rarity: _AnimalRarity.rare, lifeSpanNl: '10-18 jaar', lifeSpanEn: '10-18 years', typeNl: 'Vogel', typeEn: 'Bird', habitatNl: 'Oud bos en parken', habitatEn: 'Old forests and parks', offspringNl: '2-4 eieren per nest', offspringEn: '2-4 eggs per nest', funFactNl: 'Bosuilen jagen vooral op gehoor in het donker.', funFactEn: 'Tawny owls hunt mainly by hearing in the dark.'),
+    _AnimalEntry(id: 'Ringslang', name: 'Ringslang', rarity: _AnimalRarity.rare, lifeSpanNl: '10-20 jaar', lifeSpanEn: '10-20 years', typeNl: 'Reptiel', typeEn: 'Reptile', habitatNl: 'Natte gebieden en waterkanten', habitatEn: 'Wet areas and watersides', offspringNl: '10-30 eieren per legsel', offspringEn: '10-30 eggs per clutch', funFactNl: 'Ringslangen kunnen uitstekend zwemmen.', funFactEn: 'Grass snakes are excellent swimmers.'),
+    _AnimalEntry(id: 'Wolf', name: 'Wolf', rarity: _AnimalRarity.mystic, lifeSpanNl: '8-13 jaar', lifeSpanEn: '8-13 years', typeNl: 'Zoogdier', typeEn: 'Mammal', habitatNl: 'Grote natuurgebieden', habitatEn: 'Large natural areas', offspringNl: '4-6 welpen per worp', offspringEn: '4-6 pups per litter', funFactNl: 'Wolven leven in sociale roedels.', funFactEn: 'Wolves live in social packs.'),
+    _AnimalEntry(id: 'Edelhert', name: 'Edelhert', rarity: _AnimalRarity.mystic, lifeSpanNl: '12-18 jaar', lifeSpanEn: '12-18 years', typeNl: 'Zoogdier', typeEn: 'Mammal', habitatNl: 'Bossen en heide', habitatEn: 'Forests and heathland', offspringNl: '1 kalf per jaar', offspringEn: '1 calf per year', funFactNl: 'Mannetjes burlen luid tijdens de bronsttijd.', funFactEn: 'Males roar loudly during the rutting season.'),
+    _AnimalEntry(id: 'Adder', name: 'Adder', rarity: _AnimalRarity.mystic, lifeSpanNl: '10-20 jaar', lifeSpanEn: '10-20 years', typeNl: 'Reptiel', typeEn: 'Reptile', habitatNl: 'Heide en bosranden', habitatEn: 'Heathland and forest edges', offspringNl: '5-15 levende jongen per worp', offspringEn: '5-15 live young per litter', funFactNl: 'De adder is de enige inheemse giftige slang in NL.', funFactEn: 'The adder is the only native venomous snake in the Netherlands.'),
+    _AnimalEntry(id: 'Oehoe', name: 'Oehoe', rarity: _AnimalRarity.mystic, lifeSpanNl: '15-25 jaar', lifeSpanEn: '15-25 years', typeNl: 'Vogel', typeEn: 'Bird', habitatNl: 'Rotsen en rustige bossen', habitatEn: 'Rocks and quiet forests', offspringNl: '2-4 eieren per broedsel', offspringEn: '2-4 eggs per brood', funFactNl: 'De oehoe is een van de grootste uilen van Europa.', funFactEn: 'The eagle owl is one of the largest owls in Europe.'),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<LanguageProvider>();
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
+    if (isLandscape) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF3E5C8),
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Container(color: const Color(0xFFF3E5C8)),
+              ),
+              Column(
+                children: [
+                  GameTopBar(
+                    currentTab: GameTopTab.collection,
+                    onTabSelected: (tab) => openTopTab(context, tab),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Image.asset(
+                            'assets/rotate.png',
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.contain,
+                          ),
+                          const SizedBox(height: 16),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 32),
+                            child: Text(
+                              language.t('rotate_screen'),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Color(0xFF4D331D),
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SubtleLogo(opacity: 0.09, width: 74),
+            ],
+          ),
+        ),
+      );
+    }
+
     final game = context.watch<HuntGameState>();
     final captured = game.gevangenPerDier;
     final discovered = _animals.where((a) => _capturedCount(captured, a.id) > 0).length;
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Scaffold(
       body: SafeArea(
@@ -82,16 +158,16 @@ class CollectionScreen extends StatelessWidget {
                   onTabSelected: (tab) => openTopTab(context, tab),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Bosdier',
-                  style: TextStyle(
+                Text(
+                  language.t('collection_title'),
+                  style: const TextStyle(
                     color: Color(0xFF4D331D),
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
                 Text(
-                  'Ontdekt: $discovered/${_animals.length}',
+                  '${language.t('collection_discovered')}: $discovered/${_animals.length}',
                   style: const TextStyle(color: Color(0xFF6B4B2A), fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
@@ -103,12 +179,16 @@ class CollectionScreen extends StatelessWidget {
                       crossAxisCount: 2,
                       crossAxisSpacing: 10,
                       mainAxisSpacing: 10,
-                      childAspectRatio: isLandscape ? 1.12 : 0.9,
+                      childAspectRatio: 1.1,
                     ),
                     itemBuilder: (context, index) {
                       final animal = _animals[index];
+                        final displayName = language.animalName(animal.id);
                       final count = _capturedCount(captured, animal.id);
                       final unlocked = count > 0;
+                      final escaped = !unlocked &&
+                          !game.isMapLocked &&
+                          game.animalIsEscaped(animal.id);
                       return Material(
                         color: Colors.transparent,
                         child: InkWell(
@@ -116,14 +196,17 @@ class CollectionScreen extends StatelessWidget {
                           onTap: () {
                             AudioService.instance.playClickButton();
                             if (!unlocked) return;
-                            AudioService.instance.playAnimalCueByName(animal.name);
-                            _openAnimalDetails(context, animal, unlocked, count);
+                            AudioService.instance.playAnimalCueByName(animal.id);
+                            _openAnimalDetails(context, language, animal, unlocked, count);
                           },
                           child: _animalCard(
+                            language,
                             animal,
+                            displayName,
                             unlocked,
                             count,
                             expanded: false,
+                            escaped: escaped,
                           ),
                         ),
                       );
@@ -141,6 +224,7 @@ class CollectionScreen extends StatelessWidget {
 
   Future<void> _openAnimalDetails(
     BuildContext context,
+    LanguageProvider language,
     _AnimalEntry animal,
     bool unlocked,
     int count,
@@ -163,11 +247,52 @@ class CollectionScreen extends StatelessWidget {
                     SizedBox(
                       width: MediaQuery.of(context).size.width - 28,
                       height: MediaQuery.of(context).size.height - 28,
-                      child: _animalCard(
-                        animal,
-                        unlocked,
-                        count,
-                        expanded: true,
+                      child: OrientationBuilder(
+                        builder: (context, orientation) {
+                          if (orientation == Orientation.landscape) {
+                            return Container(
+                              padding: const EdgeInsets.all(18),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8F0DF).withValues(alpha: 0.92),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: const Color(0xFF4D331D).withValues(alpha: 0.35),
+                                  width: 1.4,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Image.asset(
+                                    'assets/rotate.png',
+                                    width: 92,
+                                    height: 92,
+                                    fit: BoxFit.contain,
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Text(
+                                    language.t('rotate_to_view_info'),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Color(0xFF4D331D),
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          return _animalCard(
+                            language,
+                            animal,
+                            language.animalName(animal.id),
+                            unlocked,
+                            count,
+                            expanded: true,
+                          );
+                        },
                       ),
                     ),
                     Positioned(
@@ -213,48 +338,66 @@ class CollectionScreen extends StatelessWidget {
   }
 
   Widget _animalCard(
+    LanguageProvider language,
     _AnimalEntry animal,
+    String displayName,
     bool unlocked,
     int count, {
     required bool expanded,
+    bool escaped = false,
   }) {
     final rarityColor = _rarityColor(animal.rarity);
     return Container(
       padding: expanded
           ? const EdgeInsets.fromLTRB(14, 14, 14, 14)
-          : const EdgeInsets.fromLTRB(8, 8, 8, 8),
+          : const EdgeInsets.fromLTRB(6, 4, 6, 2),
       decoration: BoxDecoration(
         color: const Color(0xFFF8F0DF).withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(expanded ? 18 : 12),
         border: Border.all(color: rarityColor, width: animal.rarity == _AnimalRarity.mystic ? 2.0 : 1.4),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.max,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            _rarityLabel(animal.rarity),
+            _rarityLabel(language, animal.rarity),
             textAlign: TextAlign.center,
             style: TextStyle(
               color: rarityColor,
               fontWeight: FontWeight.w900,
-              fontSize: expanded ? 12 : 8,
+              fontSize: expanded ? 13 : 9,
             ),
           ),
           SizedBox(height: expanded ? 6 : 3),
           SizedBox(
-            height: expanded ? 170 : 104,
-            child: _framedImage(
-              animal.id,
-              unlocked,
-              scale: expanded ? 1.9 : 1.5,
-              size: expanded ? 120 : 86,
+            height: expanded ? 170 : 86,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                _framedImage(
+                  animal.id,
+                  unlocked,
+                  scale: expanded ? 1.9 : 1.5,
+                  size: expanded ? 120 : 86,
+                ),
+                if (escaped && !unlocked)
+                  Positioned.fill(
+                    child: Center(
+                      child: Icon(
+                        Icons.close_rounded,
+                        color: Colors.red.withValues(alpha: 0.92),
+                        size: expanded ? 84 : 56,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
-          SizedBox(height: expanded ? 0 : 1),
+          SizedBox(height: expanded ? 0 : 0),
           _maybeBlurred(
             blurred: !unlocked,
             child: Text(
-              unlocked ? animal.name : '?????',
+              unlocked ? displayName : '?????',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -273,60 +416,76 @@ class CollectionScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _fact(
-                      'Levensverwachting',
-                      unlocked ? animal.lifeSpan : '???',
-                      fontSize: 14,
-                    ),
-                    _fact(
-                      'Type',
-                      unlocked ? animal.type : '???',
-                      fontSize: 14,
-                    ),
-                    _fact(
-                      'Habitat',
-                      unlocked ? animal.habitat : '???',
-                      fontSize: 14,
-                    ),
-                    _fact(
-                      'Nakomelingen',
-                      unlocked ? animal.offspring : '???',
-                      fontSize: 14,
-                    ),
+                    _fact(language.t('species'), unlocked ? animal.lifeSpan(language.language) : language.t('details_unknown'), fontSize: 14),
+                    _fact(language.t('type'), unlocked ? animal.type(language.language) : language.t('details_unknown'), fontSize: 14),
+                    _fact(language.t('habitat'), unlocked ? animal.habitat(language.language) : language.t('details_unknown'), fontSize: 14),
+                    _fact(language.t('offspring'), unlocked ? animal.offspring(language.language) : language.t('details_unknown'), fontSize: 14),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             _maybeBlurred(
               blurred: !unlocked,
-              child: Text(
-                unlocked ? 'Wist je dat? ${animal.funFact}' : 'Wist je dat? "..."',
-                textAlign: TextAlign.center,
-                maxLines: 7,
-                overflow: TextOverflow.visible,
-                style: const TextStyle(
-                  fontSize: 15,
-                  height: 1.2,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF5D412C),
-                ),
+              child: Column(
+                children: [
+                  Text(
+                    language.t('did_you_know'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      height: 1.2,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF5D412C),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    unlocked ? animal.funFact(language.language) : '"..."',
+                    textAlign: TextAlign.center,
+                    maxLines: 7,
+                    overflow: TextOverflow.visible,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      height: 1.2,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF5D412C),
+                    ),
+                  ),
+                ],
               ),
             ),
+            if (unlocked) ...[
+              const SizedBox(height: 12),
+              Text(
+                language.t('world_map_habitat'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF4E3A28),
+                ),
+              ),
+              const SizedBox(height: 6),
+              _HabitatMiniMap(animalId: animal.id),
+            ],
           ] else ...[
-            const Spacer(),
+            const SizedBox(height: 0),
             Text(
-              unlocked ? 'Tik voor info' : 'Ontgrendel voor info',
+              unlocked
+                  ? language.t('tap_for_info')
+                  : (escaped ? language.t('escaped_animal') : language.t('unlock_for_info')),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 9,
-                height: 1.2,
+                height: 1.0,
                 fontWeight: FontWeight.w700,
                 color: unlocked ? const Color(0xFF5D412C) : const Color(0xFF8A775F),
               ),
             ),
+            const SizedBox(height: 1),
           ],
         ],
       ),
@@ -339,9 +498,10 @@ class CollectionScreen extends StatelessWidget {
     required double scale,
     required double size,
   }) {
+    final effectiveScale = id == 'Edelhert' ? (scale * 0.94) : scale;
     return Center(
       child: Transform.scale(
-        scale: scale,
+        scale: effectiveScale,
         child: SizedBox(
           width: size,
           height: size,
@@ -442,15 +602,271 @@ class CollectionScreen extends StatelessWidget {
     }
   }
 
-  String _rarityLabel(_AnimalRarity rarity) {
+  String _rarityLabel(LanguageProvider language, _AnimalRarity rarity) {
     switch (rarity) {
       case _AnimalRarity.common:
-        return 'Veelvoorkomend';
+        return language.t('rarity_common');
       case _AnimalRarity.rare:
-        return 'Zeldzaam';
+        return language.t('rarity_rare');
       case _AnimalRarity.mystic:
-        return 'Mystiek';
+        return language.t('rarity_super_rare');
     }
+  }
+}
+
+class _HabitatMiniMap extends StatelessWidget {
+  final String animalId;
+
+  const _HabitatMiniMap({required this.animalId});
+
+  static const double _worldAspectRatio = 1536 / 1024;
+  static const String _worldImageAsset = 'assets/habitat/world.png';
+  static const Offset _worldImageNudge = Offset(0.004, -0.003);
+  static const String _defaultHabitatGeoJsonAsset =
+      'assets/habitat/redlist_species_data_2f85c862-6c4f-42e8-b0de-4a19902299bb.geojson';
+  static Future<List<List<Offset>>>? _cachedProjectedRings;
+
+  static Future<List<List<Offset>>> _loadProjectedRings() {
+    return _cachedProjectedRings ??= _readAndSimplifyProjectedRings();
+  }
+
+  static Future<List<List<Offset>>> _readAndSimplifyProjectedRings() async {
+    final raw = await rootBundle.loadString(_defaultHabitatGeoJsonAsset);
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map<String, dynamic>) return const <List<Offset>>[];
+
+    final features = decoded['features'];
+    if (features is! List) return const <List<Offset>>[];
+
+    final rings = <List<Offset>>[];
+    var totalVertices = 0;
+    const int maxTotalVertices = 240000;
+    const int maxRings = 5000;
+
+    for (final feature in features) {
+      if (feature is! Map<String, dynamic>) continue;
+      final geometry = feature['geometry'];
+      if (geometry is! Map<String, dynamic>) continue;
+
+      final type = geometry['type'];
+      final coordinates = geometry['coordinates'];
+
+      if (type == 'Polygon') {
+        if (coordinates is! List) continue;
+        if (coordinates.isEmpty) continue;
+        final exterior = _parseRing(coordinates.first);
+        if (exterior == null) continue;
+        final simplified = _simplifyRing(exterior);
+        if (_normalizedArea(simplified) > 0.0000018) {
+          rings.add(simplified);
+          totalVertices += simplified.length;
+        }
+      } else if (type == 'MultiPolygon') {
+        if (coordinates is! List) continue;
+        for (final polygon in coordinates) {
+          if (polygon is! List || polygon.isEmpty) continue;
+          final exterior = _parseRing(polygon.first);
+          if (exterior == null) continue;
+          final simplified = _simplifyRing(exterior);
+          if (_normalizedArea(simplified) > 0.0000018) {
+            rings.add(simplified);
+            totalVertices += simplified.length;
+          }
+          if (totalVertices >= maxTotalVertices || rings.length >= maxRings) break;
+        }
+      }
+
+      if (totalVertices >= maxTotalVertices || rings.length >= maxRings) {
+        break;
+      }
+    }
+
+    return rings;
+  }
+
+  static List<Offset>? _parseRing(dynamic ringData) {
+    if (ringData is! List || ringData.length < 3) return null;
+
+    final points = <Offset>[];
+    for (final coordinate in ringData) {
+      if (coordinate is! List || coordinate.length < 2) continue;
+      final lon = coordinate[0];
+      final lat = coordinate[1];
+      if (lon is! num || lat is! num) continue;
+
+      final x = ((lon.toDouble() + 180.0) / 360.0).clamp(0.0, 1.0);
+      final y = ((90.0 - lat.toDouble()) / 180.0).clamp(0.0, 1.0);
+      points.add(Offset(x, y));
+    }
+
+    if (points.length < 3) return null;
+
+    final first = points.first;
+    final last = points.last;
+    if ((first.dx - last.dx).abs() < 1e-9 && (first.dy - last.dy).abs() < 1e-9) {
+      points.removeLast();
+    }
+
+    return points.length >= 3 ? points : null;
+  }
+
+  static List<Offset> _simplifyRing(List<Offset> points) {
+    if (points.length <= 220) return points;
+
+    final tolerance = points.length > 2500
+        ? 0.0016
+        : points.length > 1200
+            ? 0.0012
+            : 0.0009;
+
+    final simplified = _douglasPeucker(points, tolerance);
+    return simplified.length >= 3 ? simplified : points;
+  }
+
+  static double _normalizedArea(List<Offset> points) {
+    if (points.length < 3) return 0;
+    var sum = 0.0;
+    for (var i = 0, j = points.length - 1; i < points.length; j = i++) {
+      sum += (points[j].dx * points[i].dy) - (points[i].dx * points[j].dy);
+    }
+    return sum.abs() * 0.5;
+  }
+
+  static List<Offset> _douglasPeucker(List<Offset> points, double tolerance) {
+    if (points.length < 3) return points;
+
+    final keep = List<bool>.filled(points.length, false);
+    keep[0] = true;
+    keep[points.length - 1] = true;
+
+    void simplifySegment(int start, int end) {
+      if (end <= start + 1) return;
+
+      var maxDistance = 0.0;
+      var index = -1;
+      final a = points[start];
+      final b = points[end];
+
+      for (var i = start + 1; i < end; i++) {
+        final d = _distanceToSegment(points[i], a, b);
+        if (d > maxDistance) {
+          maxDistance = d;
+          index = i;
+        }
+      }
+
+      if (index != -1 && maxDistance > tolerance) {
+        keep[index] = true;
+        simplifySegment(start, index);
+        simplifySegment(index, end);
+      }
+    }
+
+    simplifySegment(0, points.length - 1);
+
+    final simplified = <Offset>[];
+    for (var i = 0; i < points.length; i++) {
+      if (keep[i]) simplified.add(points[i]);
+    }
+    return simplified;
+  }
+
+  static double _distanceToSegment(Offset p, Offset a, Offset b) {
+    final dx = b.dx - a.dx;
+    final dy = b.dy - a.dy;
+    if (dx == 0 && dy == 0) {
+      return (p - a).distance;
+    }
+
+    final t = (((p.dx - a.dx) * dx) + ((p.dy - a.dy) * dy)) / ((dx * dx) + (dy * dy));
+    final clampedT = t.clamp(0.0, 1.0);
+    final proj = Offset(a.dx + clampedT * dx, a.dy + clampedT * dy);
+    return (p - proj).distance;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Animal-specific filtering can be added later; for now all 20 species share the same map file.
+    final _ = animalId;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: AspectRatio(
+        aspectRatio: _worldAspectRatio,
+        child: FutureBuilder<List<List<Offset>>>(
+          future: _loadProjectedRings(),
+          builder: (context, snapshot) {
+            final rings = snapshot.data ?? const <List<Offset>>[];
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                FractionalTranslation(
+                  translation: _worldImageNudge,
+                  child: Image.asset(
+                    _worldImageAsset,
+                    fit: BoxFit.fill,
+                    filterQuality: FilterQuality.high,
+                  ),
+                ),
+                if (rings.isNotEmpty)
+                  CustomPaint(
+                    painter: _HabitatOverlayPainter(rings: rings),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _HabitatOverlayPainter extends CustomPainter {
+  final List<List<Offset>> rings;
+
+  const _HabitatOverlayPainter({required this.rings});
+
+  static const Color _habitat = Color(0xFF2E9E4D);
+  static const Offset _overlayNudgePixels = Offset(-12, 12);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path();
+    for (final ring in rings) {
+      if (ring.length < 3) continue;
+      Offset transformPoint(Offset point) {
+        return Offset(point.dx * size.width, point.dy * size.height);
+      }
+
+      final first = transformPoint(ring.first);
+      path.moveTo(first.dx, first.dy);
+      for (var i = 1; i < ring.length; i++) {
+        final p = transformPoint(ring[i]);
+        path.lineTo(p.dx, p.dy);
+      }
+      path.close();
+    }
+
+    canvas.save();
+    canvas.translate(_overlayNudgePixels.dx, _overlayNudgePixels.dy);
+
+    final fill = Paint()
+      ..color = _habitat.withValues(alpha: 0.62)
+      ..isAntiAlias = true
+      ..blendMode = BlendMode.srcOver;
+    canvas.drawPath(path, fill);
+
+    final stroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.15
+      ..isAntiAlias = true
+      ..color = const Color(0xFF1B5E20).withValues(alpha: 0.5);
+    canvas.drawPath(path, stroke);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _HabitatOverlayPainter oldDelegate) {
+    return oldDelegate.rings != rings;
   }
 }
 

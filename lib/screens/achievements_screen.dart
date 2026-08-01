@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/hunt_game_state.dart';
+import '../providers/language_provider.dart';
 import '../widgets/game_top_bar.dart';
 import '../widgets/subtle_logo.dart';
 import 'navigation_helpers.dart';
@@ -12,6 +13,7 @@ class AchievementsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final game = context.watch<HuntGameState>();
+    final language = context.watch<LanguageProvider>();
     final items = game.achievements;
 
     return Scaffold(
@@ -39,10 +41,10 @@ class AchievementsScreen extends StatelessWidget {
                           item.behaald ? Icons.emoji_events : Icons.lock_outline,
                           color: item.behaald ? const Color(0xFFFFB800) : Colors.grey,
                         ),
-                        title: Text(item.titel),
-                        subtitle: Text(item.beschrijving),
+                        title: Text(language.achievementTitle(item.titel)),
+                        subtitle: Text(language.achievementDescription(item.beschrijving, word: HuntGameState.finalWord)),
                         trailing: Text(
-                          item.behaald ? 'Behaald' : 'Open',
+                          item.behaald ? language.t('achieved') : language.t('open'),
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             color: item.behaald ? Colors.green : Colors.grey,

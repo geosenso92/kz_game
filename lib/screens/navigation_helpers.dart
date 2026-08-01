@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import 'achievements_screen.dart';
 import 'collection_screen.dart';
@@ -7,14 +6,8 @@ import 'final_word_screen.dart';
 import 'home_screen.dart';
 import 'map_screen.dart';
 import 'vegetation_collection_screen.dart';
-import '../providers/hunt_game_state.dart';
 
 void openTopTab(BuildContext context, GameTopTab tab) {
-  final game = context.read<HuntGameState>();
-  if ((tab == GameTopTab.map || tab == GameTopTab.home) && game.isMapLocked) {
-    tab = GameTopTab.finalWord;
-  }
-
   Widget page;
   switch (tab) {
     case GameTopTab.home:

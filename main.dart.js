@@ -45653,7 +45653,7 @@ var $async$yr=A.t(function(c,d){if(c===1)return A.o(d,r)
 for(;;)switch(s){case 0:p=q.lt(a)
 p.d=b
 p=p.x
-if(p!=null)p.volume=b
+if(p!=null)p.volume=b*2
 return A.p(null,r)}})
 return A.q($async$yr,r)},
 qi(a){return this.a5H(a)},
@@ -45704,7 +45704,7 @@ r.preload="auto"
 r.src=n
 r.crossOrigin="anonymous"
 r.loop=o.f===B.iO
-r.volume=o.d
+r.volume=o.d*2
 r.playbackRate=o.e
 o.aov(r)
 q=o.y
@@ -45714,7 +45714,10 @@ o.z=p
 s=o.y.createStereoPanner()
 o.Q=s
 s.toString
-p.connect(s)
+var g=o.y.createGain()
+g.gain.value=2
+p.connect(g)
+g.connect(s)
 s=o.Q
 if(s!=null)s.connect(o.y.destination)
 r.load()},

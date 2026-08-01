@@ -7,14 +7,12 @@ class HuntSpawnService {
 
   static const List<String> _normaal = [
     'Specht',
-    'Mol',
     'Egel',
     'Eekhoorn',
     'Salamander',
     'Havik',
     'Muis',
     'Vleermuis',
-    'Haas',
     'Pad',
   ];
 

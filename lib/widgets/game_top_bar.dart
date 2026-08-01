@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/hunt_game_state.dart';
+import '../providers/language_provider.dart';
+import '../providers/volume_provider.dart';
 import '../screens/navigation_helpers.dart';
+import 'volume_slider_dialog.dart';
 
 class GameTopBar extends StatelessWidget {
   final GameTopTab currentTab;
@@ -64,6 +67,8 @@ class GameTopBar extends StatelessWidget {
             showBadge: game.hasNewFinalWordUnlock,
           ),
           const Spacer(),
+          _settingsButton(),
+          const SizedBox(width: 8),
           _timerPill(game),
         ],
       ),
@@ -127,6 +132,33 @@ class GameTopBar extends StatelessWidget {
       ),
     );
   }
+
+  Widget _settingsButton() {
+    return Consumer2<VolumeProvider, LanguageProvider>(
+      builder: (context, volumeProvider, languageProvider, _) {
+        return IconButton(
+          onPressed: () {
+            showDialog<void>(
+              context: context,
+              builder: (context) => const VolumeSliderDialog(),
+            );
+          },
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+          icon: Icon(
+            Icons.settings,
+            color: volumeProvider.volume > 0
+                ? const Color(0xFF4D331D)
+                : const Color(0xFF8D6A4A),
+            size: 28,
+          ),
+          tooltip: languageProvider.t('settings_title'),
+        );
+      },
+    );
+  }
+
 }
 
 class _TopBarBadge extends StatelessWidget {

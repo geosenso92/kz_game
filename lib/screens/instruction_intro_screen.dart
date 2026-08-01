@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../providers/language_provider.dart';
 import '../services/audio_service.dart';
 import 'map_screen.dart';
 
@@ -13,24 +15,33 @@ class InstructionIntroScreen extends StatefulWidget {
 }
 
 class _InstructionIntroScreenState extends State<InstructionIntroScreen> {
-  static const double _narrationSpeed = 1.1;
-  static final Duration _firstSlideDuration = _speedAdjusted(const Duration(seconds: 22));
-  static final Duration _nextSlideDuration = _speedAdjusted(const Duration(seconds: 10));
-  static final Duration _roadsStart = _firstSlideDuration;
-  static final Duration _animalsStart = _roadsStart + _nextSlideDuration;
-  static final Duration _wordStart = _animalsStart + _nextSlideDuration;
-  static final Duration _ticksStart = _wordStart + _nextSlideDuration;
-  static const List<String> _slides = <String>[
-    'assets/loadscreen_portrait.png',
-    'assets/roads.png',
-    'assets/animals.png',
-    'assets/word.png',
-    'assets/ticks.png',
-  ];
+  static const double _narrationSpeed = 1.0;
+  static const Duration _firstSlideDuration = Duration(seconds: 3);
+  static final Duration _rulesDuration = _speedAdjusted(const Duration(seconds: 22));
+  static final Duration _tipsDuration = _speedAdjusted(const Duration(seconds: 22));
+  static final Duration _rulesStart = _firstSlideDuration;
+  static final Duration _tipsStart = _rulesStart + _rulesDuration;
+  static final Duration _buttonsStart = _tipsStart + _tipsDuration;
+  List<String> _slidesForLanguage(LanguageProvider language) {
+    return language.isEnglish
+        ? const <String>[
+            'assets/loadscreen_portrait.png',
+            'assets/spelregels_EN.png',
+            'assets/tips_EN.png',
+          ]
+        : const <String>[
+            'assets/loadscreen_portrait.png',
+            'assets/spelregels.png',
+            'assets/tips.png',
+          ];
+  }
 
   Timer? _ticker;
   DateTime? _loopStartedAt;
   int _currentIndex = -1;
+  bool _buttonsUnlocked = false;
+  bool _skipRequested = false;
+  int _manualInfoSlideIndex = 1;
 
   static Duration _speedAdjusted(Duration original) {
     return Duration(
@@ -65,23 +76,33 @@ class _InstructionIntroScreenState extends State<InstructionIntroScreen> {
     }
     _loopStartedAt = DateTime.now();
     if (!mounted) return;
-    setState(() => _currentIndex = 0);
+    setState(() {
+      _currentIndex = 0;
+      _buttonsUnlocked = false;
+      _skipRequested = false;
+      _manualInfoSlideIndex = 1;
+    });
     _ticker = Timer.periodic(const Duration(milliseconds: 250), (_) {
       final started = _loopStartedAt;
       if (started == null) return;
       final elapsed = DateTime.now().difference(started);
       final index = _indexForElapsed(elapsed);
-      if (!mounted || index == _currentIndex) return;
-      setState(() => _currentIndex = index);
+      final shouldUnlockButtons = index == 2 && elapsed >= _buttonsStart;
+      if (!mounted) return;
+      setState(() {
+        _currentIndex = index;
+        if (shouldUnlockButtons) {
+          _buttonsUnlocked = true;
+          _manualInfoSlideIndex = 2;
+        }
+      });
     });
   }
 
   int _indexForElapsed(Duration elapsed) {
     if (elapsed < _firstSlideDuration) return 0;
-    if (elapsed < _animalsStart) return 1;
-    if (elapsed < _wordStart) return 2;
-    if (elapsed < _ticksStart) return 3;
-    return 4;
+    if (elapsed < _tipsStart) return 1;
+    return 2;
   }
 
   Future<void> _continueToMap() async {
@@ -97,9 +118,24 @@ class _InstructionIntroScreenState extends State<InstructionIntroScreen> {
     );
   }
 
+  void _skipInstruction() {
+    AudioService.instance.stopInstructionNarration();
+    _ticker?.cancel();
+    setState(() {
+      _skipRequested = true;
+      _buttonsUnlocked = true;
+      _currentIndex = 2;
+      _manualInfoSlideIndex = 2;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final showButtons = _currentIndex == 4;
+    final language = context.watch<LanguageProvider>();
+    final slides = _slidesForLanguage(language);
+    final showButtons = _buttonsUnlocked;
+    final showSkip = !_skipRequested && !_buttonsUnlocked;
+    final shownIndex = _buttonsUnlocked ? _manualInfoSlideIndex : _currentIndex;
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -109,19 +145,19 @@ class _InstructionIntroScreenState extends State<InstructionIntroScreen> {
             duration: const Duration(milliseconds: 500),
             switchInCurve: Curves.easeInOut,
             switchOutCurve: Curves.easeInOut,
-            child: _currentIndex < 0
+            child: shownIndex < 0
                 ? Container(key: const ValueKey<String>('pre_black'), color: Colors.black)
                 : Image.asset(
-                    _slides[_currentIndex],
-                    key: ValueKey<int>(_currentIndex),
+                    slides[shownIndex],
+                    key: ValueKey<int>(shownIndex),
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
-                        key: ValueKey<int>(_currentIndex),
+                        key: ValueKey<int>(shownIndex),
                         color: Colors.black,
                         child: Center(
                           child: Text(
-                            'Asset laden mislukt: ${_slides[_currentIndex]}',
+                            language.t('instruction_asset_error', values: {'asset': slides[shownIndex]}),
                             style: const TextStyle(color: Colors.white),
                           ),
                         ),
@@ -129,6 +165,23 @@ class _InstructionIntroScreenState extends State<InstructionIntroScreen> {
                     },
                   ),
           ),
+          if (_buttonsUnlocked)
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onHorizontalDragEnd: (details) {
+                  final v = details.primaryVelocity ?? 0;
+                  if (v.abs() < 60) return;
+                  setState(() {
+                    if (v < 0) {
+                      _manualInfoSlideIndex = 2;
+                    } else {
+                      _manualInfoSlideIndex = 1;
+                    }
+                  });
+                },
+              ),
+            ),
           Container(color: Colors.black.withValues(alpha: 0.18)),
           SafeArea(
             child: Padding(
@@ -136,6 +189,26 @@ class _InstructionIntroScreenState extends State<InstructionIntroScreen> {
               child: Column(
                 children: [
                   const Spacer(),
+                  if (showSkip)
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _skipInstruction,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6D4C41),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Text(
+                          language.t('instruction_skip'),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
+                  if (showSkip) const SizedBox(height: 10),
                   AnimatedOpacity(
                     opacity: showButtons ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 500),
@@ -154,9 +227,9 @@ class _InstructionIntroScreenState extends State<InstructionIntroScreen> {
                                   borderRadius: BorderRadius.circular(14),
                                 ),
                               ),
-                              child: const Text(
-                                'Herhaal uitleg',
-                                style: TextStyle(fontWeight: FontWeight.w800),
+                              child: Text(
+                                language.t('instruction_repeat'),
+                                style: const TextStyle(fontWeight: FontWeight.w800),
                               ),
                             ),
                           ),
@@ -172,9 +245,9 @@ class _InstructionIntroScreenState extends State<InstructionIntroScreen> {
                                   borderRadius: BorderRadius.circular(14),
                                 ),
                               ),
-                              child: const Text(
-                                'Ik heb het begrepen',
-                                style: TextStyle(fontWeight: FontWeight.w800),
+                              child: Text(
+                                language.t('instruction_start'),
+                                style: const TextStyle(fontWeight: FontWeight.w800),
                               ),
                             ),
                           ),

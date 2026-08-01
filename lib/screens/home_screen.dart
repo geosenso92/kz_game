@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/hunt_game_state.dart';
+import '../providers/language_provider.dart';
 import '../services/audio_service.dart';
 import '../widgets/game_top_bar.dart';
 import '../widgets/subtle_logo.dart';
@@ -15,14 +16,15 @@ class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   Future<void> _shareViaWhatsApp(BuildContext context) async {
-    const message = 'Doe mee met onze KZ Speurtocht!';
+    final language = context.read<LanguageProvider>();
+    final message = language.t('share_adventure');
     final uri = Uri.parse(
       'https://wa.me/?text=${Uri.encodeComponent(message)}',
     );
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('WhatsApp kon niet worden geopend.')),
+        SnackBar(content: Text(context.read<LanguageProvider>().t('share_whatsapp_fail'))),
       );
     }
   }
@@ -31,14 +33,14 @@ class HomeScreen extends StatelessWidget {
     final uri = Uri(
       scheme: 'mailto',
       queryParameters: {
-        'subject': 'Uitnodiging voor KZ Speurtocht',
-        'body': 'Doe mee met onze speurtocht!'
+        'subject': context.read<LanguageProvider>().t('share_email_subject'),
+        'body': context.read<LanguageProvider>().t('share_adventure'),
       },
     );
     final launched = await launchUrl(uri);
     if (!launched && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('E-mailapp kon niet worden geopend.')),
+        SnackBar(content: Text(context.read<LanguageProvider>().t('share_email_fail'))),
       );
     }
   }
@@ -57,14 +59,14 @@ class HomeScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Deel speurtocht via',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                Text(
+                  context.read<LanguageProvider>().t('share_title'),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 12),
                 ListTile(
                   leading: const Icon(Icons.chat, color: Color(0xFF1EA35A)),
-                  title: const Text('WhatsApp'),
+                  title: Text(context.read<LanguageProvider>().t('share_whatsapp')),
                   onTap: () {
                     AudioService.instance.playClickButton();
                     Navigator.of(context).pop();
@@ -73,7 +75,7 @@ class HomeScreen extends StatelessWidget {
                 ),
                 ListTile(
                   leading: const Icon(Icons.email, color: Color(0xFF2A63BF)),
-                  title: const Text('E-mail'),
+                  title: Text(context.read<LanguageProvider>().t('share_email')),
                   onTap: () {
                     AudioService.instance.playClickButton();
                     Navigator.of(context).pop();
@@ -91,8 +93,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final game = context.watch<HuntGameState>();
-    final showContinue =
-        game.hasStartedSpeurtocht && game.remainingSeconds < 4500 && !game.isMapLocked;
+    final hasStarted = game.hasProfiel;
 
     return Scaffold(
       body: Stack(
@@ -116,36 +117,49 @@ class HomeScreen extends StatelessWidget {
                         children: [
                           Image.asset(
                             'assets/logo.png',
-                            width: 224,
+                            width: 336,
                             fit: BoxFit.contain,
                           ),
                           const SizedBox(height: 18),
-                          _homeButton(
-                            context,
-                            label: 'Start nu de Speurtocht!',
-                            icon: Icons.play_arrow_rounded,
-                            color: const Color(0xFF2E7D32),
-                            verticalPadding: 28,
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const ThemeLoginScreen()),
-                              );
-                            },
-                          ),
-                          if (showContinue) ...[
+                          if (!hasStarted)
+                            _homeButton(
+                              context,
+                              label: context.read<LanguageProvider>().t('home_start'),
+                              icon: Icons.play_arrow_rounded,
+                              color: const Color(0xFF2E7D32),
+                              verticalPadding: 28,
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => const ThemeLoginScreen()),
+                                );
+                              },
+                            ),
+                          if (hasStarted) ...[
+                            _homeButton(
+                              context,
+                              label: context.read<LanguageProvider>().t('home_continue'),
+                              icon: Icons.route,
+                              color: const Color(0xFF0B5D1E),
+                              verticalPadding: 28,
+                              onTap: () => openTopTab(context, GameTopTab.map),
+                            ),
                             const SizedBox(height: 12),
                             _homeButton(
                               context,
-                              label: 'Vervolg speurtocht',
-                              icon: Icons.route,
-                              color: const Color(0xFF0B5D1E),
-                              onTap: () => openTopTab(context, GameTopTab.map),
+                              label: context.read<LanguageProvider>().t('home_restart'),
+                              icon: Icons.play_arrow_rounded,
+                              color: const Color(0xFF2E7D32),
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => const ThemeLoginScreen()),
+                                );
+                              },
                             ),
                           ],
                           const SizedBox(height: 12),
                           _homeButton(
                             context,
-                            label: 'Speluitleg',
+                            label: context.read<LanguageProvider>().t('instructions'),
                             icon: Icons.menu_book_rounded,
                             color: const Color(0xFF1565C0),
                             onTap: () {
@@ -157,7 +171,7 @@ class HomeScreen extends StatelessWidget {
                           const SizedBox(height: 12),
                           _homeButton(
                             context,
-                            label: 'Deel speurtocht',
+                            label: context.read<LanguageProvider>().t('share_adventure'),
                             icon: Icons.share,
                             color: const Color(0xFF8E24AA),
                             onTap: () => _openShareSheet(context),
@@ -165,7 +179,7 @@ class HomeScreen extends StatelessWidget {
                           const SizedBox(height: 12),
                           _homeButton(
                             context,
-                            label: 'Afsluiten',
+                            label: context.read<LanguageProvider>().t('exit'),
                             icon: Icons.close,
                             color: const Color(0xFFC62828),
                             onTap: () => SystemNavigator.pop(),

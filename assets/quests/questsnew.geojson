@@ -1,0 +1,148 @@
+﻿{
+    "type":  "FeatureCollection",
+    "features":  [
+                     {
+                         "type":  "Feature",
+                         "properties":  {
+                                            "feature_number":  1
+                                        },
+                         "geometry":  {
+                                          "coordinates":  [
+                                                              5.308753636271035,
+                                                              52.06132566378295
+                                                          ],
+                                          "type":  "Point"
+                                      }
+                     },
+                     {
+                         "type":  "Feature",
+                         "properties":  {
+                                            "feature_number":  2
+                                        },
+                         "geometry":  {
+                                          "coordinates":  [
+                                                              5.309663897180229,
+                                                              52.06022037063971
+                                                          ],
+                                          "type":  "Point"
+                                      }
+                     },
+                     {
+                         "type":  "Feature",
+                         "properties":  {
+                                            "feature_number":  3
+                                        },
+                         "geometry":  {
+                                          "coordinates":  [
+                                                              5.308772623402888,
+                                                              52.058444078275585
+                                                          ],
+                                          "type":  "Point"
+                                      }
+                     },
+                     {
+                         "type":  "Feature",
+                         "properties":  {
+                                            "feature_number":  4
+                                        },
+                         "geometry":  {
+                                          "coordinates":  [
+                                                              5.3079205181401505,
+                                                              52.05801734774252
+                                                          ],
+                                          "type":  "Point"
+                                      }
+                     },
+                     {
+                         "type":  "Feature",
+                         "properties":  {
+                                            "feature_number":  5
+                                        },
+                         "geometry":  {
+                                          "coordinates":  [
+                                                              5.310422168715718,
+                                                              52.057389171169916
+                                                          ],
+                                          "type":  "Point"
+                                      }
+                     },
+                     {
+                         "type":  "Feature",
+                         "properties":  {
+                                            "feature_number":  6
+                                        },
+                         "geometry":  {
+                                          "coordinates":  [
+                                                              5.311645681437454,
+                                                              52.05818224634177
+                                                          ],
+                                          "type":  "Point"
+                                      }
+                     },
+                     {
+                         "type":  "Feature",
+                         "properties":  {
+                                            "feature_number":  7
+                                        },
+                         "geometry":  {
+                                          "coordinates":  [
+                                                              5.312754988089267,
+                                                              52.05922195767087
+                                                          ],
+                                          "type":  "Point"
+                                      }
+                     },
+                     {
+                         "type":  "Feature",
+                         "properties":  {
+                                            "feature_number":  8
+                                        },
+                         "geometry":  {
+                                          "coordinates":  [
+                                                              5.313934313291611,
+                                                              52.05993712754409
+                                                          ],
+                                          "type":  "Point"
+                                      }
+                     },
+                     {
+                         "type":  "Feature",
+                         "properties":  {
+                                            "feature_number":  9
+                                        },
+                         "geometry":  {
+                                          "coordinates":  [
+                                                              5.314733544654814,
+                                                              52.061575945687224
+                                                          ],
+                                          "type":  "Point"
+                                      }
+                     },
+                     {
+                         "type":  "Feature",
+                         "properties":  {
+                                            "feature_number":  10
+                                        },
+                         "geometry":  {
+                                          "coordinates":  [
+                                                              5.311454148415095,
+                                                              52.061499347777016
+                                                          ],
+                                          "type":  "Point"
+                                      }
+                     },
+                     {
+                         "type":  "Feature",
+                         "properties":  {
+                                            "feature_number":  11
+                                        },
+                         "geometry":  {
+                                          "coordinates":  [
+                                                              5.310517427988515,
+                                                              52.059992003068515
+                                                          ],
+                                          "type":  "Point"
+                                      }
+                     }
+                 ]
+}
