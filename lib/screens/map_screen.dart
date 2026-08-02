@@ -330,8 +330,8 @@ class _MapScreenState extends State<MapScreen>
               child: animalImage(true),
             ),
             Positioned(
-              right: 0,
-              bottom: 0,
+              right: 5,
+              bottom: 5,
               child: Container(
                 width: 18,
                 height: 18,
