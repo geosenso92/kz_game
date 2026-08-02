@@ -159,6 +159,7 @@ class HuntGameState extends ChangeNotifier {
   }
 
   bool get hasLiveLocation => liveLat != null && liveLon != null;
+  bool get isGpsTracking => _positionSub != null;
   double? get liveLat {
     final raw = _testMode ? _simulatedPosition?.latitude : _currentPosition?.latitude;
     return (raw != null && raw.isFinite && raw.abs() <= 90.0) ? raw : null;
@@ -490,7 +491,6 @@ class HuntGameState extends ChangeNotifier {
 
   Future<void> startGpsTracking() async {
     if (_testMode) return;
-    if (_positionSub != null) return;
 
     final enabled = await Geolocator.isLocationServiceEnabled();
     if (!enabled) {
@@ -512,45 +512,72 @@ class HuntGameState extends ChangeNotifier {
     }
 
     _locationStatus = null;
+    notifyListeners();
 
+    await _refreshCurrentLocation();
+
+    if (_positionSub != null) {
+      _startGpsRefreshTicker();
+      return;
+    }
+
+    _positionSub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 3,
+      ),
+    ).listen(
+      (position) {
+        _locationStatus = null;
+        _applyCurrentPosition(position);
+        notifyListeners();
+      },
+      onError: (_) {
+        _locationStatus = 'Kon huidige locatie niet ophalen.';
+        notifyListeners();
+      },
+    );
+
+    _startGpsRefreshTicker();
+  }
+
+  Future<void> _refreshCurrentLocation() async {
     try {
       final current = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
         ),
       );
-      _trackDistanceFromPosition(current);
-      _currentPosition = current;
-      _mapCenterLat = current.latitude;
-      _mapCenterLon = current.longitude;
-      _syncTimerPauseForPosition(current.latitude, current.longitude);
-      _processProximityTriggers();
+      _locationStatus = null;
+      _applyCurrentPosition(current);
       notifyListeners();
     } catch (_) {
+      try {
+        final fallback = await Geolocator.getLastKnownPosition();
+        if (fallback != null) {
+          _locationStatus = null;
+          _applyCurrentPosition(fallback);
+          notifyListeners();
+          return;
+        }
+      } catch (_) {
+        // Fall through to status update below.
+      }
       _locationStatus = 'Kon huidige locatie niet ophalen.';
       notifyListeners();
     }
+  }
 
-    _positionSub =
-        Geolocator.getPositionStream(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 3,
-          ),
-        ).listen((position) {
-          _trackDistanceFromPosition(position);
-          _currentPosition = position;
-          _mapCenterLat = position.latitude;
-          _mapCenterLon = position.longitude;
-          _syncTimerPauseForPosition(position.latitude, position.longitude);
-          final proximityChanged = _processProximityTriggers();
-          if (proximityChanged) {
-            _saveSnapshot();
-          }
-          notifyListeners();
-        });
-
-    _startGpsRefreshTicker();
+  void _applyCurrentPosition(Position position) {
+    _trackDistanceFromPosition(position);
+    _currentPosition = position;
+    _mapCenterLat = position.latitude;
+    _mapCenterLon = position.longitude;
+    _syncTimerPauseForPosition(position.latitude, position.longitude);
+    final proximityChanged = _processProximityTriggers();
+    if (proximityChanged) {
+      unawaited(_saveSnapshot());
+    }
   }
 
   Future<void> stopGpsTracking() async {

@@ -28,7 +28,9 @@ class _MapScreenState extends State<MapScreen>
     with SingleTickerProviderStateMixin {
   final MapController _mapController = MapController();
   HuntGameState? _game;
-  bool _autoCenteredOnGps = false;
+  bool _followUserLocation = false;
+  double? _lastFollowLat;
+  double? _lastFollowLon;
   double _mapRotationDegrees = 0.0;
   bool _openingQuestFromGps = false;
   bool _processingFaunaUnlockDialogs = false;
@@ -381,6 +383,13 @@ class _MapScreenState extends State<MapScreen>
     );
   }
 
+  void _moveToLiveLocation(HuntGameState game, {double zoom = 18.2}) {
+    if (!game.hasLiveLocation) return;
+    _lastFollowLat = game.liveLat;
+    _lastFollowLon = game.liveLon;
+    _mapController.move(LatLng(game.liveLat!, game.liveLon!), zoom);
+  }
+
   int _questNumber(HuntQuest q) {
     final m = RegExp(r'(\d+)').firstMatch(q.id);
     return int.tryParse(m?.group(1) ?? '') ?? 0;
@@ -632,14 +641,24 @@ class _MapScreenState extends State<MapScreen>
             ),
           ];
 
-    if (game.hasLiveLocation && !_autoCenteredOnGps) {
-      _autoCenteredOnGps = true;
+    if (_followUserLocation && game.hasLiveLocation) {
+      final hasChanged = _lastFollowLat != game.liveLat || _lastFollowLon != game.liveLon;
+      if (hasChanged) {
+        final liveLat = game.liveLat!;
+        final liveLon = game.liveLon!;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_followUserLocation || !game.hasLiveLocation) return;
+          _lastFollowLat = liveLat;
+          _lastFollowLon = liveLon;
+          _mapController.move(LatLng(liveLat, liveLon), 18.2);
+        });
+      }
+    } else if (game.hasLiveLocation && _lastFollowLat == null && _lastFollowLon == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !game.hasLiveLocation) return;
-        _mapController.move(
-          LatLng(game.liveLat!, game.liveLon!),
-          17.5,
-        );
+        _lastFollowLat = game.liveLat;
+        _lastFollowLon = game.liveLon;
+        _mapController.move(LatLng(game.liveLat!, game.liveLon!), 17.5);
       });
     }
 
@@ -796,19 +815,26 @@ class _MapScreenState extends State<MapScreen>
                     ElevatedButton.icon(
                       onPressed: () async {
                         await AudioService.instance.playClickButton();
-                        await context.read<HuntGameState>().startGpsTracking();
+                        final gameState = context.read<HuntGameState>();
+                        if (_followUserLocation) {
+                          if (mounted) {
+                            setState(() => _followUserLocation = false);
+                          }
+                          return;
+                        }
+                        await gameState.startGpsTracking();
                         if (!context.mounted) return;
-                        if (game.hasLiveLocation) {
-                          _mapController.move(
-                            LatLng(game.liveLat!, game.liveLon!),
-                            18.2,
-                          );
+                        setState(() => _followUserLocation = true);
+                        if (gameState.hasLiveLocation) {
+                          _moveToLiveLocation(gameState);
                         }
                       },
                       icon: const Icon(Icons.my_location),
                       label: Text(language.t('follow_location')),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1B5E20),
+                        backgroundColor: _followUserLocation
+                            ? const Color(0xFF0B5D1E)
+                            : const Color(0xFF1B5E20),
                         foregroundColor: Colors.white,
                         animationDuration: const Duration(milliseconds: 150),
                       ).copyWith(
