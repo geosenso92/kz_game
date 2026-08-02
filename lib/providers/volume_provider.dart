@@ -6,9 +6,10 @@ class VolumeProvider extends ChangeNotifier {
   static const String _volumeKey = 'game_master_volume';
   static const String _backgroundEnabledKey = 'game_background_enabled';
   static const double _defaultVolume = 100.0;
+  static const bool _defaultBackgroundEnabled = true;
 
   double _volume = _defaultVolume;
-  bool _backgroundEnabled = false;
+  bool _backgroundEnabled = _defaultBackgroundEnabled;
 
   VolumeProvider._();
 
@@ -56,11 +57,12 @@ class VolumeProvider extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final stored = prefs.getDouble(_volumeKey);
       _volume = (stored == null || stored <= 0.0) ? _defaultVolume : stored;
-      _backgroundEnabled = prefs.getBool(_backgroundEnabledKey) ?? false;
+      _backgroundEnabled =
+          prefs.getBool(_backgroundEnabledKey) ?? _defaultBackgroundEnabled;
       notifyListeners();
     } catch (_) {
       _volume = _defaultVolume;
-      _backgroundEnabled = false;
+      _backgroundEnabled = _defaultBackgroundEnabled;
     }
   }
 

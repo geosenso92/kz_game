@@ -174,6 +174,7 @@ class _FinalWordScreenState extends State<FinalWordScreen> {
     final failedQuestCount = game.failedQuestCount;
     final unlockedLetters = game.unlockedLetters;
     final slots = List<String>.from(_manualSlots);
+    const horizontalFrameMargin = 16.0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3E5C8),
@@ -183,8 +184,8 @@ class _FinalWordScreenState extends State<FinalWordScreen> {
             Positioned.fill(child: Container(color: const Color(0xFFF3E5C8))),
             Positioned(
               top: 92,
-              left: 16,
-              right: 16,
+              left: horizontalFrameMargin,
+              right: horizontalFrameMargin,
               child: Opacity(
                 opacity: 0.94,
                 child: _logoPanel(),
@@ -200,8 +201,10 @@ class _FinalWordScreenState extends State<FinalWordScreen> {
                   child: Align(
                     alignment: const Alignment(0, 0.70),
                     child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: horizontalFrameMargin,
+                      ),
+                      padding: const EdgeInsets.fromLTRB(14, 16, 14, 18),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8EED8),
                         borderRadius: BorderRadius.circular(16),
@@ -218,7 +221,7 @@ class _FinalWordScreenState extends State<FinalWordScreen> {
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               color: Color(0xFF4D331D),
-                              fontSize: 30,
+                              fontSize: 34,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
@@ -248,54 +251,70 @@ class _FinalWordScreenState extends State<FinalWordScreen> {
                             ),
                             const SizedBox(height: 10),
                           ],
-                          SizedBox(
-                            width: (46 * 5) + (10 * 4),
-                            child: GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: _slotCount,
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 5,
-                                    crossAxisSpacing: 10,
-                                    mainAxisSpacing: 10,
-                                    childAspectRatio: 1,
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              const slotSpacing = 10.0;
+                              final rawSlotSize =
+                                  (constraints.maxWidth - (slotSpacing * 4)) / 5;
+                              final slotSize = rawSlotSize.clamp(44.0, 64.0);
+                              final gridWidth = (slotSize * 5) + (slotSpacing * 4);
+                              final gridHeight = (slotSize * 2) + slotSpacing;
+
+                              return Center(
+                                child: SizedBox(
+                                  width: gridWidth,
+                                  height: gridHeight,
+                                  child: GridView.builder(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    itemCount: _slotCount,
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: 5,
+                                          crossAxisSpacing: slotSpacing,
+                                          mainAxisSpacing: slotSpacing,
+                                          childAspectRatio: 1,
+                                        ),
+                                    itemBuilder: (context, index) {
+                                      final val = slots[index];
+                                      // Always render empty slots as circles with a dot placeholder;
+                                      // failed guesses are shown separately next to unlocked letters.
+                                      return InkWell(
+                                        onTap: () => _pickLetter(context, index),
+                                        borderRadius: BorderRadius.circular(slotSize / 2),
+                                        child: Container(
+                                          width: slotSize,
+                                          height: slotSize,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: val.isNotEmpty
+                                                ? const Color(0xFF2A63BF)
+                                                : const Color(0xFFFFF4DC),
+                                            border: Border.all(
+                                              color: Colors.white,
+                                              width: 1.1,
+                                            ),
+                                          ),
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            val.isNotEmpty ? val : '•',
+                                            style: TextStyle(
+                                              fontSize: val.isNotEmpty
+                                                  ? slotSize * 0.46
+                                                  : slotSize * 0.44,
+                                              color: val.isNotEmpty
+                                                  ? Colors.white
+                                                  : const Color(0xFF7A5A3A),
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
                                   ),
-                              itemBuilder: (context, index) {
-                                final val = slots[index];
-                                // Always render empty slots as circles with a dot placeholder;
-                                // failed guesses are shown separately next to unlocked letters.
-                                return InkWell(
-                                  onTap: () => _pickLetter(context, index),
-                                  borderRadius: BorderRadius.circular(30),
-                                  child: Container(
-                                    width: 46,
-                                    height: 46,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: val.isNotEmpty
-                                          ? const Color(0xFF2A63BF)
-                                          : const Color(0xFFFFF4DC),
-                                      border: Border.all(
-                                        color: Colors.white,
-                                        width: 1.1,
-                                      ),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      val.isNotEmpty ? val : '•',
-                                      style: TextStyle(
-                                        fontSize: val.isNotEmpty ? 21 : 20,
-                                        color: val.isNotEmpty
-                                            ? Colors.white
-                                            : const Color(0xFF7A5A3A),
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
+                                ),
+                              );
+                            },
                           ),
                           const SizedBox(height: 14),
                           ElevatedButton(

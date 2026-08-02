@@ -45,9 +45,11 @@ flutter:
     - assets/habitat/world.png
     - assets/fotoframe.png
     - assets/bosgebied.geojson
+    - assets/bosdieren.geojson
     - assets/fauna.geojson
     - assets/searcharea2.geojson
     - assets/fauna2.geojson
+    - assets/fauna3.geojson
     - assets/KZ_locatie.geojson
     - assets/maps/colscreen.png
     - assets/areas/search_area.geojson

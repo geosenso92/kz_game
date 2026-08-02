@@ -46,15 +46,24 @@ class AreaService {
   }
 
   Future<List<({double x, double y})>> loadFaunaPoints() async {
-    const path = 'assets/fauna3.geojson';
-    try {
-      final raw = await rootBundle.loadString(path);
-      final json = jsonDecode(raw);
-      if (json is! Map<String, dynamic>) return const [];
-      return _extractPoints(json);
-    } catch (_) {
-      return const [];
+    const paths = [
+      'assets/bosdieren.geojson',
+      'assets/fauna3.geojson',
+      'assets/fauna2.geojson',
+      'assets/fauna.geojson',
+    ];
+    for (final path in paths) {
+      try {
+        final raw = await rootBundle.loadString(path);
+        final json = jsonDecode(raw);
+        if (json is! Map<String, dynamic>) continue;
+        final points = _extractPoints(json);
+        if (points.isNotEmpty) return points;
+      } catch (_) {
+        // Try next candidate asset path.
+      }
     }
+    return const [];
   }
 
   Future<List<({int featureNumber, double x, double y})>> loadQuestStops() async {

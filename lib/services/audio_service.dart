@@ -40,6 +40,7 @@ class AudioService {
   bool _timerWarningActive = false;
   bool _isFadingIn = false;
   bool _isBackgroundDuckedForInstruction = false;
+  bool _handledFirstUserInteraction = false;
   Duration? _backgroundDuration;
   double _lastAppliedBackgroundVolume = -1;
 
@@ -57,6 +58,12 @@ class AudioService {
     } catch (_) {
       _backgroundStarted = false;
     }
+  }
+
+  Future<void> onFirstUserInteraction() async {
+    if (_handledFirstUserInteraction) return;
+    _handledFirstUserInteraction = true;
+    await startBackgroundMusic();
   }
 
   Future<void> stopBackgroundMusic() async {

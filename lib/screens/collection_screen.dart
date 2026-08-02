@@ -347,6 +347,7 @@ class CollectionScreen extends StatelessWidget {
     bool escaped = false,
   }) {
     final rarityColor = _rarityColor(animal.rarity);
+    final shiftLockedPreviewText = !unlocked && !expanded;
     return Container(
       padding: expanded
           ? const EdgeInsets.fromLTRB(14, 14, 14, 14)
@@ -396,14 +397,19 @@ class CollectionScreen extends StatelessWidget {
           SizedBox(height: expanded ? 0 : 0),
           _maybeBlurred(
             blurred: !unlocked,
-            child: Text(
-              unlocked ? displayName : '?????',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: unlocked ? (expanded ? 24 : 14) : (expanded ? 27 : 17),
-                fontWeight: FontWeight.w900,
-                color: unlocked ? const Color(0xFF3B2818) : const Color(0xFF8A775F),
+            child: Transform.translate(
+              offset: shiftLockedPreviewText
+                  ? const Offset(0, 15)
+                  : Offset.zero,
+              child: Text(
+                unlocked ? displayName : '?????',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: unlocked ? (expanded ? 24 : 14) : (expanded ? 27 : 17),
+                  fontWeight: FontWeight.w900,
+                  color: unlocked ? const Color(0xFF3B2818) : const Color(0xFF8A775F),
+                ),
               ),
             ),
           ),
@@ -471,18 +477,23 @@ class CollectionScreen extends StatelessWidget {
             ],
           ] else ...[
             const SizedBox(height: 0),
-            Text(
-              unlocked
-                  ? language.t('tap_for_info')
-                  : (escaped ? language.t('escaped_animal') : language.t('unlock_for_info')),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.0,
-                fontWeight: FontWeight.w700,
-                color: unlocked ? const Color(0xFF5D412C) : const Color(0xFF8A775F),
+            Transform.translate(
+              offset: shiftLockedPreviewText
+                  ? const Offset(0, 15)
+                  : Offset.zero,
+              child: Text(
+                unlocked
+                    ? language.t('tap_for_info')
+                    : (escaped ? language.t('escaped_animal') : language.t('unlock_for_info')),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.0,
+                  fontWeight: FontWeight.w700,
+                  color: unlocked ? const Color(0xFF5D412C) : const Color(0xFF8A775F),
+                ),
               ),
             ),
             const SizedBox(height: 1),

@@ -48,12 +48,18 @@ class SpeurtochtApp extends StatelessWidget {
       ],
       child: Consumer2<HuntGameState, LanguageProvider>(
         builder: (context, game, language, _) {
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            title: language.t('app_title'),
-            theme: game.themeData,
-            locale: language.locale,
-            home: const RootRouterScreen(),
+          return Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) {
+              AudioService.instance.onFirstUserInteraction();
+            },
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              title: language.t('app_title'),
+              theme: game.themeData,
+              locale: language.locale,
+              home: const RootRouterScreen(),
+            ),
           );
         },
       ),
