@@ -16,7 +16,6 @@ class AudioService {
   static const String _collectObjectAsset = 'audio/collectobject.mp3';
   static const String _correctAnswerAsset = 'audio/correct.mp3';
   static const String _wrongAnswerAsset = 'audio/wrong.mp3';
-  static const String _clickButtonAsset = 'audio/clickbutton.mp3';
   static const String _timerWarningAsset = 'audio/timer.mp3';
   static const String _congratsAsset = 'audio/congrats.mp3';
   static const String _instructionAsset = 'audio/instruction.mp3';
@@ -174,9 +173,7 @@ class AudioService {
     await _playSfx(_wrongAnswerAsset);
   }
 
-  Future<void> playClickButton() async {
-    await _playSfx(_clickButtonAsset);
-  }
+  Future<void> playClickButton() async {}
 
   Future<void> playCongrats() async {
     await _playSfx(_congratsAsset);

@@ -11,6 +11,7 @@ import '../models/dier_spawn.dart';
 import '../models/hunt_quest.dart';
 import '../providers/hunt_game_state.dart';
 import '../providers/language_provider.dart';
+import '../providers/volume_provider.dart';
 import '../services/audio_service.dart';
 import '../services/game_vibration_service.dart';
 import '../widgets/game_top_bar.dart';
@@ -31,6 +32,7 @@ class _MapScreenState extends State<MapScreen>
   bool _followUserLocation = false;
   double? _lastFollowLat;
   double? _lastFollowLon;
+  bool? _wasOutsideSearchArea;
   double _mapRotationDegrees = 0.0;
   bool _openingQuestFromGps = false;
   bool _processingFaunaUnlockDialogs = false;
@@ -407,6 +409,7 @@ class _MapScreenState extends State<MapScreen>
   Widget build(BuildContext context) {
     final language = context.watch<LanguageProvider>();
     final game = context.watch<HuntGameState>();
+    final backgroundEnabled = context.watch<VolumeProvider>().backgroundEnabled;
     final outsideSearchArea = game.hasLiveLocation &&
         !_isInsideSearchArea(
           game.liveLat!,
@@ -423,6 +426,19 @@ class _MapScreenState extends State<MapScreen>
     final polygonPoints = game.searchPolygonLatLng
         .map((p) => LatLng(p.lat, p.lon))
         .toList(growable: false);
+
+    if (_wasOutsideSearchArea != outsideSearchArea) {
+      final arrivedInSearchArea = _wasOutsideSearchArea != null &&
+          _wasOutsideSearchArea == true &&
+          outsideSearchArea == false;
+      final firstInsideRender = _wasOutsideSearchArea == null && !outsideSearchArea;
+      _wasOutsideSearchArea = outsideSearchArea;
+      if ((arrivedInSearchArea || firstInsideRender) && backgroundEnabled) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          AudioService.instance.startBackgroundMusic();
+        });
+      }
+    }
 
     if (game.isMapLocked) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
