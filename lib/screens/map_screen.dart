@@ -850,7 +850,7 @@ class _MapScreenState extends State<MapScreen>
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _followUserLocation
                             ? const Color(0xFF0B5D1E)
-                            : const Color(0xFF1B5E20),
+                            : const Color(0xFF2E7D32),
                         foregroundColor: Colors.white,
                         animationDuration: const Duration(milliseconds: 150),
                       ).copyWith(
