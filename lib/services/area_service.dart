@@ -47,6 +47,7 @@ class AreaService {
 
   Future<List<({double x, double y})>> loadFaunaPoints() async {
     const paths = [
+      'assets/bosdieren2.geojson',
       'assets/bosdieren.geojson',
       'assets/fauna3.geojson',
       'assets/fauna2.geojson',

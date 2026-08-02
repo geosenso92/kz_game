@@ -46,6 +46,7 @@ flutter:
     - assets/fotoframe.png
     - assets/bosgebied.geojson
     - assets/bosdieren.geojson
+    - assets/bosdieren2.geojson
     - assets/fauna.geojson
     - assets/searcharea2.geojson
     - assets/fauna2.geojson

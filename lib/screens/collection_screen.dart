@@ -347,7 +347,7 @@ class CollectionScreen extends StatelessWidget {
     bool escaped = false,
   }) {
     final rarityColor = _rarityColor(animal.rarity);
-    final shiftLockedPreviewText = !unlocked && !expanded;
+    final shiftPreviewText = !expanded;
     return Container(
       padding: expanded
           ? const EdgeInsets.fromLTRB(14, 14, 14, 14)
@@ -398,7 +398,7 @@ class CollectionScreen extends StatelessWidget {
           _maybeBlurred(
             blurred: !unlocked,
             child: Transform.translate(
-              offset: shiftLockedPreviewText
+              offset: shiftPreviewText
                   ? const Offset(0, 15)
                   : Offset.zero,
               child: Text(
@@ -478,7 +478,7 @@ class CollectionScreen extends StatelessWidget {
           ] else ...[
             const SizedBox(height: 0),
             Transform.translate(
-              offset: shiftLockedPreviewText
+              offset: shiftPreviewText
                   ? const Offset(0, 15)
                   : Offset.zero,
               child: Text(

@@ -291,6 +291,99 @@ class _MapScreenState extends State<MapScreen>
     );
   }
 
+  Widget _spawnMarkerChild({
+    required DierSpawn s,
+    required bool captured,
+  }) {
+    Widget animalImage(bool useMaster) {
+      return Image.asset(
+        useMaster
+            ? 'assets/animals/master/${s.naam}.png'
+            : 'assets/animals/icons_300_silhouette/${s.naam}.png',
+        fit: BoxFit.contain,
+        excludeFromSemantics: true,
+        errorBuilder: (_, __, ___) => Image.asset(
+          'assets/animals/icons_300/${s.naam}.png',
+          fit: BoxFit.contain,
+          excludeFromSemantics: true,
+          color: useMaster ? null : Colors.black,
+          colorBlendMode: useMaster ? null : BlendMode.srcATop,
+          errorBuilder: (_, __, ___) => Icon(
+            Icons.pets,
+            color: Colors.white.withValues(alpha: 0.9),
+            size: 18,
+          ),
+        ),
+      );
+    }
+
+    if (captured) {
+      return SizedBox(
+        width: 52,
+        height: 52,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            SizedBox(
+              width: 52,
+              height: 52,
+              child: animalImage(true),
+            ),
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E7D32),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.2),
+                ),
+                child: const Icon(
+                  Icons.check,
+                  color: Colors.white,
+                  size: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return AnimatedBuilder(
+      animation: _warningPulseController,
+      builder: (context, child) {
+        final t = _warningPulseController.value;
+        final scale = 0.94 + (0.12 * t);
+        return Transform.scale(
+          scale: scale,
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFF8FF86).withValues(alpha: 0.35 + (0.25 * t)),
+                  blurRadius: 10 + (5 * t),
+                  spreadRadius: 1.4 + (0.8 * t),
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        );
+      },
+      child: SizedBox(
+        width: 34,
+        height: 34,
+        child: animalImage(false),
+      ),
+    );
+  }
+
   int _questNumber(HuntQuest q) {
     final m = RegExp(r'(\d+)').firstMatch(q.id);
     return int.tryParse(m?.group(1) ?? '') ?? 0;
@@ -410,43 +503,7 @@ class _MapScreenState extends State<MapScreen>
             double? distMeters;
             bool isNearby = false;
             bool withinCapture = false;
-            final child = SizedBox(
-              width: 34,
-              height: 34,
-              child: captured
-                  ? Image.asset(
-                      'assets/animals/master/${s.naam}.png',
-                      fit: BoxFit.contain,
-                      excludeFromSemantics: true,
-                      errorBuilder: (_, __, ___) => Image.asset(
-                        'assets/animals/icons_300/${s.naam}.png',
-                        fit: BoxFit.contain,
-                        excludeFromSemantics: true,
-                        errorBuilder: (_, __, ___) => Icon(
-                          Icons.pets,
-                          color: Colors.white.withValues(alpha: 0.9),
-                          size: 18,
-                        ),
-                      ),
-                    )
-                  : Image.asset(
-                      'assets/animals/icons_300_silhouette/${s.naam}.png',
-                      fit: BoxFit.contain,
-                      excludeFromSemantics: true,
-                      errorBuilder: (_, __, ___) => Image.asset(
-                        'assets/animals/icons_300/${s.naam}.png',
-                        fit: BoxFit.contain,
-                        excludeFromSemantics: true,
-                        color: Colors.black,
-                        colorBlendMode: BlendMode.srcATop,
-                        errorBuilder: (_, __, ___) => Icon(
-                          Icons.pets,
-                          color: Colors.white.withValues(alpha: 0.9),
-                          size: 18,
-                        ),
-                      ),
-                    ),
-            );
+            final child = _spawnMarkerChild(s: s, captured: captured);
             if (captured) {
               isNearby = true;
               withinCapture = true;
@@ -477,8 +534,8 @@ class _MapScreenState extends State<MapScreen>
               if (captured) {
                 return Marker(
                   point: LatLng(s.y, s.x),
-                  width: 34,
-                  height: 34,
+                  width: 56,
+                  height: 56,
                   rotate: true,
                   child: child,
                 );
@@ -1117,7 +1174,7 @@ class _MapScreenState extends State<MapScreen>
                   child: Text(
                     title,
                     maxLines: 1,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -1126,7 +1183,7 @@ class _MapScreenState extends State<MapScreen>
                   child: Text(
                     value,
                     maxLines: 1,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                   ),
                 ),
               ],

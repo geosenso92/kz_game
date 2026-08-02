@@ -40,13 +40,15 @@ class AudioService {
   bool _timerWarningActive = false;
   bool _isFadingIn = false;
   bool _isBackgroundDuckedForInstruction = false;
-  bool _handledFirstUserInteraction = false;
+  bool _startingBackground = false;
   Duration? _backgroundDuration;
   double _lastAppliedBackgroundVolume = -1;
 
   Future<void> startBackgroundMusic() async {
     if (!VolumeProvider().backgroundEnabled) return;
     if (_backgroundStarted) return;
+    if (_startingBackground) return;
+    _startingBackground = true;
     try {
       await _ensurePlayersCanMixAudio();
       await _backgroundPlayer.setReleaseMode(ReleaseMode.loop);
@@ -57,12 +59,12 @@ class AudioService {
       _fadeInBackgroundMusic();
     } catch (_) {
       _backgroundStarted = false;
+    } finally {
+      _startingBackground = false;
     }
   }
 
   Future<void> onFirstUserInteraction() async {
-    if (_handledFirstUserInteraction) return;
-    _handledFirstUserInteraction = true;
     await startBackgroundMusic();
   }
 
