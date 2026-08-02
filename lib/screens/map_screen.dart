@@ -849,8 +849,8 @@ class _MapScreenState extends State<MapScreen>
                       label: Text(language.t('follow_location')),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _followUserLocation
-                            ? const Color(0xFF0B5D1E)
-                            : const Color(0xFF2E7D32),
+                            ? const Color(0xFF2E7D32)
+                            : const ui.Color.fromARGB(255, 125, 198, 129),
                         foregroundColor: Colors.white,
                         animationDuration: const Duration(milliseconds: 150),
                       ).copyWith(
@@ -884,7 +884,7 @@ class _MapScreenState extends State<MapScreen>
                       icon: const Icon(Icons.travel_explore),
                       label: Text(language.t('search_area')),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1B5E20),
+                        backgroundColor: const Color(0xFFEA8B00),
                         foregroundColor: Colors.white,
                         animationDuration: const Duration(milliseconds: 150),
                       ).copyWith(
