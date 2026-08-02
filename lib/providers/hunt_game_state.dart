@@ -494,19 +494,23 @@ class HuntGameState extends ChangeNotifier {
 
     final enabled = await Geolocator.isLocationServiceEnabled();
     if (!enabled) {
-      _locationStatus = 'Locatie staat uit op dit toestel.';
+      _locationStatus =
+          'Locatie is uitgeschakeld. Schakel locatie in om het spel volledig te kunnen spelen.';
       notifyListeners();
       return;
     }
 
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
+      _locationStatus = 'Locatie toestemming wordt gevraagd...';
+      notifyListeners();
       permission = await Geolocator.requestPermission();
     }
 
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
-      _locationStatus = 'Locatie toestemming ontbreekt.';
+      _locationStatus =
+          'Locatie is nodig voor dit spel. Zonder toestemming kun je de speurtocht niet volledig spelen.';
       notifyListeners();
       return;
     }

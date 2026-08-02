@@ -38,6 +38,7 @@ class _MapScreenState extends State<MapScreen>
   bool _processingFaunaUnlockDialogs = false;
   bool _showingAllStopsDialog = false;
   bool _showingTooFarMessage = false;
+  bool _hasShownLocationPermissionDialog = false;
   final Set<String> _notifiedWithin100m = <String>{};
   final Set<String> _notifiedWithin30m = <String>{};
   Future<void> _vibrationQueue = Future<void>.value();
@@ -426,6 +427,31 @@ class _MapScreenState extends State<MapScreen>
     final polygonPoints = game.searchPolygonLatLng
         .map((p) => LatLng(p.lat, p.lon))
         .toList(growable: false);
+
+    if (game.locationStatus != null &&
+        game.locationStatus!.contains('Locatie is nodig') &&
+        !_hasShownLocationPermissionDialog) {
+      _hasShownLocationPermissionDialog = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => AlertDialog(
+            title: const Text('Locatie nodig voor het spel'),
+            content: const Text(
+              'Deze speurtocht gebruikt je locatie om je positie op de kaart te tonen en je voortgang te volgen. Zonder toestemming kun je het spel niet volledig spelen.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Ok'),
+              ),
+            ],
+          ),
+        );
+      });
+    }
 
     if (_wasOutsideSearchArea != outsideSearchArea) {
       final arrivedInSearchArea = _wasOutsideSearchArea != null &&
@@ -850,7 +876,7 @@ class _MapScreenState extends State<MapScreen>
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _followUserLocation
                             ? const Color(0xFF2E7D32)
-                            : const ui.Color.fromARGB(255, 125, 198, 129),
+                            : const Color.fromARGB(255, 125, 198, 129),
                         foregroundColor: Colors.white,
                         animationDuration: const Duration(milliseconds: 150),
                       ).copyWith(
