@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -15,9 +16,23 @@ import 'theme_login_screen.dart';
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
-  Future<void> _shareViaWhatsApp(BuildContext context) async {
+  static const String _fallbackShareUrl = 'https://geosenso92.github.io/kz_game/';
+
+  String _shareUrl() {
+    if (!kIsWeb) return _fallbackShareUrl;
+
+    final currentUrl = Uri.base.toString();
+    if (currentUrl.isEmpty) return _fallbackShareUrl;
+    return currentUrl;
+  }
+
+  String _shareMessage(BuildContext context) {
     final language = context.read<LanguageProvider>();
-    final message = language.t('share_adventure');
+    return '${language.t('share_adventure')}\n${_shareUrl()}';
+  }
+
+  Future<void> _shareViaWhatsApp(BuildContext context) async {
+    final message = _shareMessage(context);
     final uri = Uri.parse(
       'https://wa.me/?text=${Uri.encodeComponent(message)}',
     );
@@ -34,7 +49,7 @@ class HomeScreen extends StatelessWidget {
       scheme: 'mailto',
       queryParameters: {
         'subject': context.read<LanguageProvider>().t('share_email_subject'),
-        'body': context.read<LanguageProvider>().t('share_adventure'),
+        'body': _shareMessage(context),
       },
     );
     final launched = await launchUrl(uri);
