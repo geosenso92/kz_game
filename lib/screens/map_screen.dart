@@ -34,12 +34,10 @@ class _MapScreenState extends State<MapScreen>
   bool _processingFaunaUnlockDialogs = false;
   bool _showingAllStopsDialog = false;
   bool _showingTooFarMessage = false;
-  bool _runningTestRoute = false;
   final Set<String> _notifiedWithin100m = <String>{};
   final Set<String> _notifiedWithin30m = <String>{};
   Future<void> _vibrationQueue = Future<void>.value();
   Timer? _tooFarMessageTimer;
-  Timer? _testRouteTimer;
   late final AnimationController _warningPulseController;
 
   @override
@@ -67,7 +65,6 @@ class _MapScreenState extends State<MapScreen>
     _warningPulseController.dispose();
     _game?.stopGpsTracking();
     _tooFarMessageTimer?.cancel();
-    _testRouteTimer?.cancel();
     super.dispose();
   }
 
@@ -827,36 +824,6 @@ class _MapScreenState extends State<MapScreen>
                       ),
                     ),
                     ElevatedButton.icon(
-                      onPressed: _runningTestRoute
-                          ? () async {
-                              AudioService.instance.playClickButton();
-                              await _stopTestRoute();
-                            }
-                          : () async {
-                              AudioService.instance.playClickButton();
-                              await _startTestRoute(context.read<HuntGameState>());
-                            },
-                      icon: Icon(
-                        _runningTestRoute ? Icons.stop_circle : Icons.route,
-                      ),
-                      label: Text(
-                        _runningTestRoute ? 'Stop test route' : 'Test route',
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        animationDuration: const Duration(milliseconds: 150),
-                      ).copyWith(
-                        overlayColor: WidgetStateProperty.resolveWith((states) {
-                          if (states.contains(WidgetState.pressed)) {
-                            return Colors.white.withValues(alpha: 0.36);
-                          }
-                          if (states.contains(WidgetState.hovered)) {
-                            return Colors.white.withValues(alpha: 0.16);
-                          }
-                          return null;
-                        }),
-                      ),
-                    ),
-                    ElevatedButton.icon(
                       onPressed: () async {
                         AudioService.instance.playClickButton();
                         final gameState = context.read<HuntGameState>();
@@ -1065,66 +1032,6 @@ class _MapScreenState extends State<MapScreen>
       if (intersects) inside = !inside;
     }
     return inside;
-  }
-
-  Future<void> _startTestRoute(HuntGameState game) async {
-    final routeQuests = _orderedRouteQuests(game);
-    if (routeQuests.isEmpty) return;
-
-    _testRouteTimer?.cancel();
-    if (mounted) {
-      setState(() => _runningTestRoute = true);
-    } else {
-      _runningTestRoute = true;
-    }
-
-    game.setTestMode(true);
-
-    final startQuest = routeQuests.first;
-    await game.activateStartStopForTest(questId: startQuest.id);
-    game.updateSimulatedPosition(startQuest.y, startQuest.x);
-    if (mounted) {
-      _mapController.move(LatLng(startQuest.y, startQuest.x), 17.4);
-    }
-
-    var index = 1;
-    _testRouteTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
-      if (!mounted || !_runningTestRoute) {
-        timer.cancel();
-        return;
-      }
-
-      if (index >= routeQuests.length) {
-        timer.cancel();
-        unawaited(_stopTestRoute());
-        return;
-      }
-
-      final quest = routeQuests[index++];
-      game.updateSimulatedPosition(quest.y, quest.x);
-      if (mounted) {
-        _mapController.move(LatLng(quest.y, quest.x), 17.4);
-      }
-    });
-  }
-
-  Future<void> _stopTestRoute() async {
-    _testRouteTimer?.cancel();
-    _testRouteTimer = null;
-    final game = context.read<HuntGameState>();
-    game.setTestMode(false);
-    if (mounted) {
-      setState(() => _runningTestRoute = false);
-    } else {
-      _runningTestRoute = false;
-    }
-    await game.startGpsTracking();
-  }
-
-  List<HuntQuest> _orderedRouteQuests(HuntGameState game) {
-    final quests = List<HuntQuest>.from(game.quests);
-    quests.sort((a, b) => _questNumber(a).compareTo(_questNumber(b)));
-    return quests.where((q) => _questNumber(q) >= 1).toList(growable: false);
   }
 
   Color _rarityColor(DierZeldzaamheid rarity) {

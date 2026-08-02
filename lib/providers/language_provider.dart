@@ -216,8 +216,8 @@ class LanguageProvider extends ChangeNotifier {
       AppLanguage.english: 'OK',
     },
     'follow_location': {
-      AppLanguage.dutch: 'Volg Mijn Locatie',
-      AppLanguage.english: 'Follow My Location',
+      AppLanguage.dutch: 'Volg mijn locatie',
+      AppLanguage.english: 'Follow my location',
     },
     'search_area': {
       AppLanguage.dutch: 'Zoekgebied',

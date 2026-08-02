@@ -641,8 +641,6 @@ class _HabitatMiniMap extends StatelessWidget {
   const _HabitatMiniMap({required this.animalId});
 
   static const double _worldAspectRatio = 1536 / 1024;
-  static const String _worldImageAsset = 'assets/habitat/world.png';
-  static const Offset _worldImageNudge = Offset(0.004, -0.003);
   static const String _defaultHabitatGeoJsonAsset =
       'assets/habitat/redlist_species_data_2f85c862-6c4f-42e8-b0de-4a19902299bb.geojson';
   static Future<List<List<Offset>>>? _cachedProjectedRings;
@@ -820,14 +818,7 @@ class _HabitatMiniMap extends StatelessWidget {
             return Stack(
               fit: StackFit.expand,
               children: [
-                FractionalTranslation(
-                  translation: _worldImageNudge,
-                  child: Image.asset(
-                    _worldImageAsset,
-                    fit: BoxFit.fill,
-                    filterQuality: FilterQuality.high,
-                  ),
-                ),
+                const ColoredBox(color: Color(0xFFEFE4CC)),
                 if (rings.isNotEmpty)
                   CustomPaint(
                     painter: _HabitatOverlayPainter(rings: rings),
