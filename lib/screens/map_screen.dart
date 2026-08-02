@@ -741,7 +741,7 @@ class _MapScreenState extends State<MapScreen>
                   children: [
                     ElevatedButton.icon(
                       onPressed: () async {
-                        AudioService.instance.playClickButton();
+                        await AudioService.instance.playClickButton();
                         await context.read<HuntGameState>().startGpsTracking();
                         if (!context.mounted) return;
                         if (game.hasLiveLocation) {
