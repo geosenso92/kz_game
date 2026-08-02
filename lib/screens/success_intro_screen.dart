@@ -1,11 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:vibration/vibration.dart';
 
 import '../providers/language_provider.dart';
+import '../services/game_vibration_service.dart';
 import 'instruction_intro_screen.dart';
 
 class SuccessIntroScreen extends StatefulWidget {
@@ -67,20 +64,11 @@ class _SuccessIntroScreenState extends State<SuccessIntroScreen>
   }
 
   Future<void> _triggerSuccessVibration() async {
-    if (!Platform.isAndroid) return;
-    try {
-      final hasVibrator = await Vibration.hasVibrator();
-      if (hasVibrator) {
-        await Vibration.vibrate(
-          pattern: const [0, 900, 260, 900],
-          intensities: const [0, 220, 0, 220],
-        );
-        return;
-      }
-    } catch (_) {
-      // Fall back to generic haptic feedback when plugin vibration is unavailable.
-    }
-    await HapticFeedback.vibrate();
+    if (!GameVibrationService.isSupportedPlatform) return;
+    await GameVibrationService.vibratePattern(
+      pattern: const [0, 900, 260, 900],
+      intensities: const [0, 220, 0, 220],
+    );
   }
 
   @override

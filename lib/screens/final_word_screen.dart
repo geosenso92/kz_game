@@ -200,7 +200,7 @@ class _FinalWordScreenState extends State<FinalWordScreen> {
                   child: Align(
                     alignment: const Alignment(0, 0.70),
                     child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 14),
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
                       padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8EED8),
@@ -248,44 +248,54 @@ class _FinalWordScreenState extends State<FinalWordScreen> {
                             ),
                             const SizedBox(height: 10),
                           ],
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            alignment: WrapAlignment.center,
-                            children: List.generate(_slotCount, (index) {
-                              final val = slots[index];
-                              // Always render empty slots as circles with a dot placeholder;
-                              // failed guesses are shown separately next to unlocked letters.
-                              return InkWell(
-                                onTap: () => _pickLetter(context, index),
-                                borderRadius: BorderRadius.circular(30),
-                                child: Container(
-                                  width: 46,
-                                  height: 46,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: val.isNotEmpty
-                                        ? const Color(0xFF2A63BF)
-                                        : const Color(0xFFFFF4DC),
-                                    border: Border.all(
-                                      color: Colors.white,
-                                      width: 1.1,
-                                    ),
+                          SizedBox(
+                            width: (46 * 5) + (10 * 4),
+                            child: GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: _slotCount,
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 5,
+                                    crossAxisSpacing: 10,
+                                    mainAxisSpacing: 10,
+                                    childAspectRatio: 1,
                                   ),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    val.isNotEmpty ? val : '•',
-                                    style: TextStyle(
-                                      fontSize: val.isNotEmpty ? 21 : 20,
+                              itemBuilder: (context, index) {
+                                final val = slots[index];
+                                // Always render empty slots as circles with a dot placeholder;
+                                // failed guesses are shown separately next to unlocked letters.
+                                return InkWell(
+                                  onTap: () => _pickLetter(context, index),
+                                  borderRadius: BorderRadius.circular(30),
+                                  child: Container(
+                                    width: 46,
+                                    height: 46,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
                                       color: val.isNotEmpty
-                                          ? Colors.white
-                                          : const Color(0xFF7A5A3A),
-                                      fontWeight: FontWeight.w900,
+                                          ? const Color(0xFF2A63BF)
+                                          : const Color(0xFFFFF4DC),
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 1.1,
+                                      ),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      val.isNotEmpty ? val : '•',
+                                      style: TextStyle(
+                                        fontSize: val.isNotEmpty ? 21 : 20,
+                                        color: val.isNotEmpty
+                                            ? Colors.white
+                                            : const Color(0xFF7A5A3A),
+                                        fontWeight: FontWeight.w900,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              );
-                            }),
+                                );
+                              },
+                            ),
                           ),
                           const SizedBox(height: 14),
                           ElevatedButton(

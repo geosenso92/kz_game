@@ -2,19 +2,17 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
-import 'package:vibration/vibration.dart';
 
 import '../models/dier_spawn.dart';
 import '../models/hunt_quest.dart';
 import '../providers/hunt_game_state.dart';
 import '../providers/language_provider.dart';
 import '../services/audio_service.dart';
+import '../services/game_vibration_service.dart';
 import '../widgets/game_top_bar.dart';
 import '../widgets/subtle_logo.dart';
 import 'navigation_helpers.dart';
@@ -115,11 +113,8 @@ class _MapScreenState extends State<MapScreen>
     await _showAnimalDialog(captured, isNewUnlock: true);
   }
 
-  bool get _isAndroidDevice =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-
   void _enqueueVibration(Future<void> Function() action) {
-    if (!_isAndroidDevice) return;
+    if (!GameVibrationService.isSupportedPlatform) return;
     _vibrationQueue = _vibrationQueue.then((_) async {
       try {
         await action();
@@ -130,26 +125,20 @@ class _MapScreenState extends State<MapScreen>
   }
 
   Future<void> _vibrateDuration(int durationMs, {int amplitude = 210}) async {
-    if (!_isAndroidDevice) return;
-    final hasVibrator = await Vibration.hasVibrator();
-    if (!hasVibrator) {
-      await HapticFeedback.mediumImpact();
-      return;
-    }
-    await Vibration.vibrate(duration: durationMs, amplitude: amplitude);
+    await GameVibrationService.vibrateDuration(
+      durationMs,
+      amplitude: amplitude,
+    );
   }
 
   Future<void> _vibratePattern({
     required List<int> pattern,
     required List<int> intensities,
   }) async {
-    if (!_isAndroidDevice) return;
-    final hasVibrator = await Vibration.hasVibrator();
-    if (!hasVibrator) {
-      await HapticFeedback.mediumImpact();
-      return;
-    }
-    await Vibration.vibrate(pattern: pattern, intensities: intensities);
+    await GameVibrationService.vibratePattern(
+      pattern: pattern,
+      intensities: intensities,
+    );
   }
 
   void _queueNearAnimalVibration() {

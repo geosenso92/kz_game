@@ -365,7 +365,7 @@ class CollectionScreen extends StatelessWidget {
             style: TextStyle(
               color: rarityColor,
               fontWeight: FontWeight.w900,
-              fontSize: expanded ? 13 : 9,
+              fontSize: expanded ? 16 : 12,
             ),
           ),
           SizedBox(height: expanded ? 6 : 3),
@@ -401,7 +401,7 @@ class CollectionScreen extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: expanded ? 24 : 14,
+                fontSize: unlocked ? (expanded ? 24 : 14) : (expanded ? 27 : 17),
                 fontWeight: FontWeight.w900,
                 color: unlocked ? const Color(0xFF3B2818) : const Color(0xFF8A775F),
               ),
@@ -479,7 +479,7 @@ class CollectionScreen extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 9,
+                fontSize: 12,
                 height: 1.0,
                 fontWeight: FontWeight.w700,
                 color: unlocked ? const Color(0xFF5D412C) : const Color(0xFF8A775F),
@@ -500,12 +500,15 @@ class CollectionScreen extends StatelessWidget {
   }) {
     final effectiveScale = id == 'Edelhert' ? (scale * 0.94) : scale;
     return Center(
-      child: Transform.scale(
-        scale: effectiveScale,
-        child: SizedBox(
-          width: size,
-          height: size,
-          child: unlocked ? _unlockedImage(id) : _lockedImage(id),
+      child: Transform.translate(
+        offset: unlocked ? Offset.zero : const Offset(0, 20),
+        child: Transform.scale(
+          scale: effectiveScale,
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: unlocked ? _unlockedImage(id) : _lockedImage(id),
+          ),
         ),
       ),
     );
