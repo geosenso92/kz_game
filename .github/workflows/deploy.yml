@@ -28,7 +28,7 @@ jobs:
         run: flutter pub get
 
       - name: Build web
-        run: flutter build web --release --base-href /kz_game/
+        run: flutter build web --release --base-href /kz_game/ --pwa-strategy=none
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
